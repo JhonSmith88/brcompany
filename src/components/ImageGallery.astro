@@ -1,0 +1,778 @@
+---
+import type { ProductImage } from '../data/products';
+
+interface Props {
+  images: ProductImage[];
+  productName: string;
+}
+
+const { images, productName } = Astro.props;
+---
+
+<div class="gallery" data-gallery>
+  <div class="gallery__viewport">
+    <button
+      type="button"
+      class="gallery__main"
+      data-gallery-main
+      aria-label={`Ampliar imagen de ${productName}`}
+    >
+      <img
+        data-gallery-thumb
+        src={images[0]?.thumb}
+        alt={images[0]?.alt ?? productName}
+        width="480"
+        height="480"
+        decoding="async"
+      />
+      <span class="gallery__hint">Clic para ampliar</span>
+    </button>
+    {
+      images.length > 1 && (
+        <>
+          <button type="button" class="gallery__nav gallery__nav--prev" data-gallery-prev aria-label="Imagen anterior">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+              <path d="M15 5l-7 7 7 7" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+          </button>
+          <button type="button" class="gallery__nav gallery__nav--next" data-gallery-next aria-label="Imagen siguiente">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+              <path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+          </button>
+        </>
+      )
+    }
+  </div>
+
+  {
+    images.length > 1 && (
+      <div class="gallery__thumbs" role="list">
+        {images.map((image, index) => (
+          <button
+            type="button"
+            class:list={['gallery__thumb', { 'is-active': index === 0 }]}
+            role="listitem"
+            data-gallery-select
+            data-index={index}
+            data-thumb={image.thumb}
+            data-full={image.full}
+            data-alt={image.alt}
+            aria-label={`Ver imagen ${index + 1}`}
+            aria-pressed={index === 0 ? 'true' : 'false'}
+          >
+            <img src={image.thumb} alt="" width="96" height="96" loading="lazy" decoding="async" />
+          </button>
+        ))}
+      </div>
+    )
+  }
+
+  <dialog class="lightbox" data-lightbox aria-label="Vista ampliada del producto">
+    <div class="lightbox__frame" data-lightbox-frame>
+      <button type="button" class="lightbox__close" data-lightbox-close aria-label="Cerrar">
+        ×
+      </button>
+
+      {
+        images.length > 1 && (
+          <>
+            <button type="button" class="lightbox__nav lightbox__nav--prev" data-lightbox-prev aria-label="Imagen anterior">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+                <path d="M15 5l-7 7 7 7" stroke-linecap="round" stroke-linejoin="round"></path>
+              </svg>
+            </button>
+            <button type="button" class="lightbox__nav lightbox__nav--next" data-lightbox-next aria-label="Imagen siguiente">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+                <path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round"></path>
+              </svg>
+            </button>
+          </>
+        )
+      }
+
+      <div class="lightbox__stage" data-lightbox-stage>
+        <img data-lightbox-img alt="" width="1400" height="1400" decoding="async" />
+        <div class="lightbox__spinner" data-lightbox-spinner aria-hidden="true"></div>
+      </div>
+      <p class="lightbox__meta">
+        <span data-lightbox-counter></span>
+        <span>Scroll para zoom · Arrastra para mover · Esc para cerrar</span>
+      </p>
+    </div>
+  </dialog>
+</div>
+
+<style>
+  .gallery {
+    display: grid;
+    gap: 0.85rem;
+  }
+
+  .gallery__viewport {
+    position: relative;
+  }
+
+  .gallery__main {
+    position: relative;
+    aspect-ratio: 1;
+    width: 100%;
+    overflow: hidden;
+    background: var(--color-black-elevated);
+    border: 1px solid rgba(201, 162, 39, 0.16);
+    cursor: zoom-in;
+    padding: 0;
+  }
+
+  .gallery__nav {
+    position: absolute;
+    top: 50%;
+    z-index: 2;
+    display: grid;
+    place-items: center;
+    width: 2.7rem;
+    height: 2.7rem;
+    border: 1px solid rgb(201 162 39 / 0.45);
+    background: rgb(8 8 8 / 0.72);
+    color: var(--color-gold-bright);
+    transform: translateY(-50%);
+    cursor: pointer;
+    transition:
+      background var(--transition),
+      color var(--transition),
+      border-color var(--transition);
+  }
+
+  .gallery__nav svg {
+    width: 1.2rem;
+    height: 1.2rem;
+  }
+
+  .gallery__nav:hover {
+    background: var(--gold-gradient);
+    border-color: transparent;
+    color: var(--color-black);
+  }
+
+  .gallery__nav--prev {
+    left: 0.75rem;
+  }
+
+  .gallery__nav--next {
+    right: 0.75rem;
+  }
+
+  .gallery__main img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: opacity 0.25s ease;
+  }
+
+  .gallery__hint {
+    position: absolute;
+    left: 0.85rem;
+    bottom: 0.85rem;
+    font-size: 0.65rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-silver);
+    background: rgba(0, 0, 0, 0.65);
+    border: 1px solid rgba(201, 162, 39, 0.25);
+    padding: 0.4rem 0.65rem;
+    pointer-events: none;
+  }
+
+  .gallery__thumbs {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(4.5rem, 1fr));
+    gap: 0.55rem;
+  }
+
+  .gallery__thumb {
+    aspect-ratio: 1;
+    border: 1px solid rgba(200, 200, 200, 0.15);
+    overflow: hidden;
+    padding: 0;
+    opacity: 0.7;
+    transition:
+      opacity var(--transition),
+      border-color var(--transition);
+  }
+
+  .gallery__thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .gallery__thumb.is-active,
+  .gallery__thumb:hover {
+    opacity: 1;
+    border-color: var(--color-gold);
+  }
+
+  .lightbox {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: 100vw;
+    height: 100dvh;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    padding: 1.25rem;
+    border: none;
+    background: transparent;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+
+  .lightbox[open] {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .lightbox[open]::backdrop {
+    background: rgb(0 0 0 / 0.86);
+    animation: backdrop-in 0.35s ease;
+  }
+
+  .lightbox.is-closing[open]::backdrop {
+    animation: backdrop-out 0.28s ease forwards;
+  }
+
+  .lightbox__frame {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 auto;
+    width: min(92vw, 58rem);
+    max-width: min(92vw, 58rem);
+    height: min(88vh, 52rem);
+    max-height: 88vh;
+    margin: auto;
+    padding: 2.6rem 1.15rem 1rem;
+    border: 1px solid rgb(201 162 39 / 0.32);
+    background: rgb(5 5 5 / 0.97);
+    box-shadow: 0 24px 60px rgb(0 0 0 / 0.45);
+    animation: frame-in 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+    overflow: hidden;
+  }
+
+  .lightbox.is-closing .lightbox__frame {
+    animation: frame-out 0.28s ease forwards;
+  }
+
+  .lightbox__close {
+    position: absolute;
+    top: 0.35rem;
+    right: 0.45rem;
+    z-index: 3;
+    width: 2.5rem;
+    height: 2.5rem;
+    border: 0;
+    background: none;
+    font-size: 1.8rem;
+    line-height: 1;
+    color: var(--color-gold-bright);
+    cursor: pointer;
+  }
+
+  .lightbox__nav {
+    position: absolute;
+    top: 50%;
+    z-index: 3;
+    display: grid;
+    place-items: center;
+    width: 2.7rem;
+    height: 2.7rem;
+    border: 1px solid rgb(201 162 39 / 0.45);
+    background: rgb(8 8 8 / 0.72);
+    color: var(--color-gold-bright);
+    transform: translateY(-50%);
+    cursor: pointer;
+    transition:
+      background var(--transition),
+      color var(--transition),
+      border-color var(--transition);
+  }
+
+  .lightbox__nav svg {
+    width: 1.2rem;
+    height: 1.2rem;
+  }
+
+  .lightbox__nav:hover {
+    background: var(--gold-gradient);
+    border-color: transparent;
+    color: var(--color-black);
+  }
+
+  .lightbox__nav--prev {
+    left: 0.7rem;
+  }
+
+  .lightbox__nav--next {
+    right: 0.7rem;
+  }
+
+  .lightbox__stage {
+    position: relative;
+    flex: 1 1 auto;
+    height: min(64vh, 38rem);
+    min-height: 0;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    background: #080808;
+    cursor: zoom-in;
+    touch-action: none;
+  }
+
+  .lightbox__stage.is-zoomed {
+    cursor: grab;
+  }
+
+  .lightbox__stage.is-panning {
+    cursor: grabbing;
+  }
+
+  .lightbox__stage img {
+    --zoom: 1;
+    --pan-x: 0px;
+    --pan-y: 0px;
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    opacity: 0;
+    transform: translate(var(--pan-x), var(--pan-y)) scale(var(--zoom));
+    transform-origin: center center;
+    transition:
+      opacity 0.38s ease,
+      transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+    user-select: none;
+    -webkit-user-drag: none;
+    pointer-events: auto;
+  }
+
+  .lightbox__stage img.is-ready {
+    opacity: 1;
+  }
+
+  .lightbox__stage.is-panning img {
+    transition: opacity 0.38s ease;
+  }
+
+  .lightbox__spinner {
+    position: absolute;
+    width: 2rem;
+    height: 2rem;
+    border: 1px solid rgb(201 162 39 / 0.2);
+    border-top-color: var(--color-gold);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  .lightbox__spinner.is-hidden {
+    display: none;
+  }
+
+  .lightbox__meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-shrink: 0;
+    margin-top: 0.85rem;
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    color: var(--color-silver-dim);
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @keyframes backdrop-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes backdrop-out {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+
+  @keyframes frame-in {
+    from {
+      opacity: 0;
+      transform: translateY(16px) scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes frame-out {
+    from {
+      opacity: 1;
+      transform: none;
+    }
+    to {
+      opacity: 0;
+      transform: translateY(10px) scale(0.97);
+    }
+  }
+
+  @media (max-width: 700px) {
+    .lightbox__nav {
+      width: 2.3rem;
+      height: 2.3rem;
+    }
+
+    .lightbox__nav--prev {
+      left: 0.35rem;
+    }
+
+    .lightbox__nav--next {
+      right: 0.35rem;
+    }
+
+    .lightbox__stage {
+      height: min(52vh, 28rem);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .lightbox[open]::backdrop,
+    .lightbox__frame,
+    .lightbox.is-closing .lightbox__frame,
+    .lightbox.is-closing[open]::backdrop,
+    .lightbox__stage img {
+      animation: none;
+      transition: none;
+    }
+  }
+</style>
+
+<script>
+  function initGallery(root: HTMLElement) {
+    const mainBtn = root.querySelector<HTMLButtonElement>('[data-gallery-main]');
+    const thumbImg = root.querySelector<HTMLImageElement>('[data-gallery-thumb]');
+    const selects = [...root.querySelectorAll<HTMLButtonElement>('[data-gallery-select]')];
+    const dialog = root.querySelector<HTMLDialogElement>('[data-lightbox]');
+    const frame = root.querySelector<HTMLElement>('[data-lightbox-frame]');
+    const stage = root.querySelector<HTMLElement>('[data-lightbox-stage]');
+    const fullImg = root.querySelector<HTMLImageElement>('[data-lightbox-img]');
+    const spinner = root.querySelector<HTMLElement>('[data-lightbox-spinner]');
+    const closeBtn = root.querySelector<HTMLButtonElement>('[data-lightbox-close]');
+    const prevBtn = root.querySelector<HTMLButtonElement>('[data-lightbox-prev]');
+    const nextBtn = root.querySelector<HTMLButtonElement>('[data-lightbox-next]');
+    const galleryPrev = root.querySelector<HTMLButtonElement>('[data-gallery-prev]');
+    const galleryNext = root.querySelector<HTMLButtonElement>('[data-gallery-next]');
+
+    if (!mainBtn || !thumbImg || !dialog || !frame || !stage || !fullImg || !spinner || !closeBtn) return;
+
+    const slides =
+      selects.length > 0
+        ? selects.map((btn) => ({
+            thumb: btn.dataset.thumb ?? '',
+            full: btn.dataset.full ?? '',
+            alt: btn.dataset.alt ?? '',
+          }))
+        : [
+            {
+              thumb: thumbImg.src,
+              full: thumbImg.src,
+              alt: thumbImg.alt,
+            },
+          ];
+
+    let index = 0;
+    let closing = false;
+    let zoom = 1;
+    let panX = 0;
+    let panY = 0;
+    let drag = false;
+    let moved = false;
+    let startX = 0;
+    let startY = 0;
+    let originX = 0;
+    let originY = 0;
+    const MIN_ZOOM = 1;
+    const MAX_ZOOM = 3;
+    const CLICK_ZOOM = 1.85;
+
+    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    const lockPageScroll = () => {
+      const scrollbar = window.innerWidth - document.documentElement.clientWidth;
+      document.documentElement.style.overflow = 'hidden';
+      document.documentElement.style.overscrollBehavior = 'none';
+      document.body.style.overflow = 'hidden';
+      document.body.style.overscrollBehavior = 'none';
+      if (scrollbar > 0) document.body.style.paddingRight = `${scrollbar}px`;
+    };
+
+    const unlockPageScroll = () => {
+      document.documentElement.style.overflow = '';
+      document.documentElement.style.overscrollBehavior = '';
+      document.body.style.overflow = '';
+      document.body.style.overscrollBehavior = '';
+      document.body.style.paddingRight = '';
+    };
+
+    const resetView = () => {
+      zoom = 1;
+      panX = 0;
+      panY = 0;
+      drag = false;
+      moved = false;
+      stage.classList.remove('is-zoomed', 'is-panning');
+      applyView();
+    };
+
+    const applyView = () => {
+      fullImg.style.setProperty('--zoom', String(zoom));
+      fullImg.style.setProperty('--pan-x', `${panX}px`);
+      fullImg.style.setProperty('--pan-y', `${panY}px`);
+    };
+
+    const clampPan = () => {
+      const rect = stage.getBoundingClientRect();
+      const extraX = (rect.width * (zoom - 1)) / 2;
+      const extraY = (rect.height * (zoom - 1)) / 2;
+      panX = Math.min(extraX, Math.max(-extraX, panX));
+      panY = Math.min(extraY, Math.max(-extraY, panY));
+    };
+
+    const setZoom = (value: number) => {
+      zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value));
+      if (zoom <= MIN_ZOOM + 0.01) {
+        zoom = 1;
+        panX = 0;
+        panY = 0;
+      }
+      stage.classList.toggle('is-zoomed', zoom > 1);
+      clampPan();
+      applyView();
+    };
+
+    const syncThumbs = () => {
+      selects.forEach((btn, i) => {
+        const active = i === index;
+        btn.classList.toggle('is-active', active);
+        btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+      });
+      const slide = slides[index];
+      if (!slide) return;
+      thumbImg.src = slide.thumb || slide.full;
+      thumbImg.alt = slide.alt;
+    };
+
+    const updateCounter = () => {
+      if (!counter) return;
+      counter.textContent = slides.length > 1 ? `${index + 1} / ${slides.length}` : '';
+    };
+
+    const loadImage = (direction = 0) => {
+      const slide = slides[index];
+      if (!slide) return;
+
+      fullImg.classList.remove('is-ready');
+      spinner.classList.remove('is-hidden');
+      resetView();
+      updateCounter();
+      syncThumbs();
+
+      const applySrc = () => {
+        fullImg.src = slide.full;
+        fullImg.alt = slide.alt;
+        requestAnimationFrame(() => fullImg.classList.add('is-ready'));
+        spinner.classList.add('is-hidden');
+      };
+
+      const loader = new Image();
+      loader.onload = applySrc;
+      loader.onerror = () => {
+        spinner.classList.add('is-hidden');
+        fullImg.alt = 'No se pudo cargar la imagen';
+      };
+      loader.src = slide.full;
+    };
+
+    const goTo = (nextIndex: number, direction = 0) => {
+      if (slides.length === 0) return;
+      index = (nextIndex + slides.length) % slides.length;
+      if (dialog.open) loadImage(direction);
+      else syncThumbs();
+    };
+
+    const openLightbox = () => {
+      closing = false;
+      dialog.classList.remove('is-closing');
+      fullImg.classList.remove('is-ready');
+      spinner.classList.remove('is-hidden');
+      resetView();
+      dialog.showModal();
+      lockPageScroll();
+      loadImage(0);
+    };
+
+    const closeLightbox = () => {
+      if (closing) return;
+      closing = true;
+      dialog.classList.add('is-closing');
+      const end = () => {
+        dialog.close();
+        dialog.classList.remove('is-closing');
+        resetView();
+        fullImg.classList.remove('is-ready');
+        fullImg.removeAttribute('src');
+        closing = false;
+      };
+      if (prefersReduced) {
+        end();
+        return;
+      }
+      window.setTimeout(end, 260);
+    };
+
+    selects.forEach((btn, i) => {
+      btn.addEventListener('click', () => {
+        index = i;
+        syncThumbs();
+      });
+    });
+
+    galleryPrev?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      goTo(index - 1, -1);
+    });
+    galleryNext?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      goTo(index + 1, 1);
+    });
+
+    mainBtn.addEventListener('click', openLightbox);
+    closeBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      closeLightbox();
+    });
+    prevBtn?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      goTo(index - 1, -1);
+    });
+    nextBtn?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      goTo(index + 1, 1);
+    });
+
+    dialog.addEventListener('click', (event) => {
+      if (event.target === dialog) closeLightbox();
+    });
+    frame.addEventListener('click', (event) => event.stopPropagation());
+
+    stage.addEventListener('pointerdown', (event) => {
+      if (zoom <= 1 || event.button !== 0) return;
+      drag = true;
+      moved = false;
+      startX = event.clientX;
+      startY = event.clientY;
+      originX = panX;
+      originY = panY;
+      stage.classList.add('is-panning');
+      stage.setPointerCapture(event.pointerId);
+    });
+
+    stage.addEventListener('pointermove', (event) => {
+      if (!drag) return;
+      const dx = event.clientX - startX;
+      const dy = event.clientY - startY;
+      if (Math.hypot(dx, dy) > 5) moved = true;
+      panX = originX + dx;
+      panY = originY + dy;
+      clampPan();
+      applyView();
+    });
+
+    const endPan = () => {
+      if (!drag) return;
+      drag = false;
+      stage.classList.remove('is-panning');
+    };
+
+    stage.addEventListener('pointerup', endPan);
+    stage.addEventListener('pointercancel', endPan);
+
+    stage.addEventListener('click', (event) => {
+      if (event.target !== fullImg && event.target !== stage) return;
+      if (moved) {
+        moved = false;
+        return;
+      }
+      setZoom(zoom > 1 ? 1 : CLICK_ZOOM);
+    });
+
+    dialog.addEventListener(
+      'wheel',
+      (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const step = event.deltaY > 0 ? -0.16 : 0.16;
+        setZoom(zoom + step);
+      },
+      { passive: false },
+    );
+
+    dialog.addEventListener(
+      'touchmove',
+      (event) => {
+        event.preventDefault();
+      },
+      { passive: false },
+    );
+
+    dialog.addEventListener('cancel', (event) => {
+      event.preventDefault();
+      closeLightbox();
+    });
+
+    dialog.addEventListener('close', () => {
+      unlockPageScroll();
+    });
+
+    dialog.addEventListener('keydown', (event) => {
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        goTo(index - 1, -1);
+      }
+      if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        goTo(index + 1, 1);
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeLightbox();
+      }
+    });
+  }
+
+  document.querySelectorAll<HTMLElement>('[data-gallery]').forEach(initGallery);
+</script>

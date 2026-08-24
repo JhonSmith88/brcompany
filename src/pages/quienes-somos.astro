@@ -1,0 +1,294 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import WhatsAppButton from '../components/WhatsAppButton.astro';
+import { site, generalWhatsAppMessage } from '../data/site';
+---
+
+<BaseLayout
+  title="Quiénes somos"
+  description={`Conoce ${site.name}: boutique de relojería y accesorios masculinos con atención personalizada.`}
+>
+  <section class="about">
+    <div class="container about__grid">
+      <aside class="about__media anim-fade-up">
+        <div class="about__panel">
+          <img class="about__silk" src="/fondo-tela.png" alt="" width="900" height="1200" />
+          <div class="about__crest">
+            <img src="/logo.png" alt={site.name} width="420" height="420" />
+          </div>
+        </div>
+      </aside>
+
+      <div class="about__copy anim-fade-up-delay">
+        <p class="eyebrow">La casa</p>
+        <h1 class="about__title">Quiénes somos</h1>
+        <span class="about__rule" aria-hidden="true"></span>
+
+        <p>
+          <strong>RBCOMPANY</strong> es una boutique orientada al estilo masculino de alto nivel.
+          Nos enfocamos en relojes y accesorios seleccionados por su presencia, acabado y carácter.
+        </p>
+        <p>
+          No operamos como un ecommerce tradicional: el catálogo web te permite explorar las piezas
+          disponibles y, cuando encuentres la indicada, inicias una conversación directa por
+          WhatsApp con nuestro equipo.
+        </p>
+        <p>
+          Así confirmamos stock, resolvemos dudas de medidas o modelos y coordinamos la entrega con
+          la misma atención que esperarías en un mostrador físico.
+        </p>
+
+        <ul class="about__pillars">
+          <li>
+            <span class="about__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M12 3.2L14.4 8l5.4.7-4 3.7.9 5.4L12 15.6 7.3 17.8l.9-5.4-4-3.7L9.6 8 12 3.2z" stroke-linejoin="round"></path>
+              </svg>
+            </span>
+            <h2>Curaduría</h2>
+            <p>Piezas con identidad, priorizando estética y calidad percibida.</p>
+          </li>
+          <li>
+            <span class="about__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <circle cx="12" cy="8" r="3.1"></circle>
+                <path d="M6.2 19c.7-3.1 3-4.8 5.8-4.8s5.1 1.7 5.8 4.8" stroke-linecap="round"></path>
+              </svg>
+            </span>
+            <h2>Atención humana</h2>
+            <p>Asesoría real por WhatsApp, sin formularios fríos ni carritos abandonados.</p>
+          </li>
+          <li>
+            <span class="about__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M12 3.2l7 2.2v5.4c0 4.2-2.8 7.4-7 8.8-4.2-1.4-7-4.6-7-8.8V5.4L12 3.2z"></path>
+                <path d="M9.2 12.1l1.9 1.9 3.8-4" stroke-linecap="round" stroke-linejoin="round"></path>
+              </svg>
+            </span>
+            <h2>Transparencia</h2>
+            <p>Código de producto, precio y disponibilidad visibles en cada ficha.</p>
+          </li>
+        </ul>
+
+        <WhatsAppButton
+          class="about__cta"
+          variant="outline"
+          message={generalWhatsAppMessage('Quisiera conocer más sobre RBCompany.')}
+        />
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .about {
+    padding-block: clamp(2.5rem, 6vw, 5rem) clamp(3rem, 7vw, 6rem);
+  }
+
+  .about__grid {
+    width: min(100% - clamp(2.5rem, 8vw, 7.5rem), 80rem);
+    display: grid;
+    grid-template-columns: minmax(0, 0.86fr) minmax(0, 1.14fr);
+    gap: clamp(2.5rem, 5vw, 4.5rem);
+    align-items: stretch;
+  }
+
+  .about__media {
+    --about-chamfer: 18px;
+    position: relative;
+    width: 100%;
+    min-height: 0;
+    align-self: stretch;
+    background: var(--gold-gradient);
+    clip-path: polygon(
+      var(--about-chamfer) 0,
+      calc(100% - var(--about-chamfer)) 0,
+      100% var(--about-chamfer),
+      100% calc(100% - var(--about-chamfer)),
+      calc(100% - var(--about-chamfer)) 100%,
+      var(--about-chamfer) 100%,
+      0 calc(100% - var(--about-chamfer)),
+      0 var(--about-chamfer)
+    );
+  }
+
+  .about__panel {
+    --about-chamfer-inner: 16px;
+    position: absolute;
+    inset: 2px;
+    overflow: hidden;
+    clip-path: polygon(
+      var(--about-chamfer-inner) 0,
+      calc(100% - var(--about-chamfer-inner)) 0,
+      100% var(--about-chamfer-inner),
+      100% calc(100% - var(--about-chamfer-inner)),
+      calc(100% - var(--about-chamfer-inner)) 100%,
+      var(--about-chamfer-inner) 100%,
+      0 calc(100% - var(--about-chamfer-inner)),
+      0 var(--about-chamfer-inner)
+    );
+  }
+
+  .about__silk {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: 62% 38%;
+  }
+
+  .about__crest {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    height: 100%;
+    padding: 2.5rem 1.5rem;
+  }
+
+  .about__crest img {
+    width: min(70%, 18rem);
+    height: auto;
+    filter: drop-shadow(0 18px 40px rgb(0 0 0 / 0.55));
+  }
+
+  .about__copy {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+  }
+
+  .about__title {
+    font-size: clamp(2.9rem, 5.4vw, 4.5rem);
+    font-weight: 500;
+    line-height: 1.08;
+    margin-bottom: 0.85rem;
+  }
+
+  .about__rule {
+    display: block;
+    width: 4.25rem;
+    height: 2px;
+    margin-bottom: 1.65rem;
+    background: var(--gold-gradient);
+  }
+
+  .about__copy > .eyebrow {
+    color: var(--color-gold-bright);
+    font-size: 0.82rem;
+  }
+
+  .about__copy > p:not(.eyebrow) {
+    color: var(--color-white);
+    font-size: 1.15rem;
+    line-height: 1.7;
+    width: 100%;
+    max-width: none;
+  }
+
+  .about__copy > p + p {
+    margin-top: 1rem;
+  }
+
+  .about__copy strong {
+    color: var(--color-gold-bright);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+
+  .about__pillars {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.35rem 1.5rem;
+    width: 100%;
+    margin: 2rem 0 1.75rem;
+  }
+
+  .about__pillars li {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding-right: 0.4rem;
+  }
+
+  .about__pillars li:not(:last-child) {
+    border-right: 1px solid rgb(201 162 39 / 0.38);
+    padding-right: 1.35rem;
+  }
+
+  .about__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.85rem;
+    height: 2.85rem;
+    margin-bottom: 0.85rem;
+    color: var(--color-gold);
+  }
+
+  .about__icon svg {
+    display: block;
+    width: 2.85rem;
+    height: 2.85rem;
+  }
+
+  .about__pillars h2 {
+    font-family: var(--font-body);
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--color-gold);
+    margin-bottom: 0.45rem;
+  }
+
+  .about__pillars p {
+    font-size: 1.02rem;
+    line-height: 1.5;
+    color: var(--color-white);
+  }
+
+  .about__copy :global(.about__cta) {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: none;
+    height: auto;
+    min-height: 0;
+    flex: 0 0 auto;
+    align-self: stretch;
+    margin-top: 0.15rem;
+    font-size: 0.88rem;
+  }
+
+  .about__copy :global(.about__cta svg) {
+    width: 1.15rem;
+    height: 1.15rem;
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 900px) {
+    .about__grid {
+      grid-template-columns: 1fr;
+      gap: 2rem;
+    }
+
+    .about__media {
+      min-height: 28rem;
+    }
+
+    .about__pillars {
+      grid-template-columns: 1fr;
+      gap: 1.15rem;
+    }
+
+    .about__pillars li:not(:last-child) {
+      border-right: none;
+      border-bottom: 1px solid rgb(201 162 39 / 0.28);
+      padding-right: 0;
+      padding-bottom: 1.15rem;
+    }
+  }
+</style>

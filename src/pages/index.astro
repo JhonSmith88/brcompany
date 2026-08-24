@@ -1,0 +1,2511 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import ProductCard from '../components/ProductCard.astro';
+import WhatsAppButton from '../components/WhatsAppButton.astro';
+import { categories } from '../data/categories';
+import { getFeaturedProducts, products } from '../data/products';
+import { site, generalWhatsAppMessage, formatPrice } from '../data/site';
+
+const featured = getFeaturedProducts();
+const spotlight = featured[0];
+const brandMarks = [...new Set(featured.map((p) => p.marca))];
+const carouselProducts = products
+  .filter((product) => !spotlight || product.codigo !== spotlight.codigo)
+  .slice(0, 8);
+
+const heroSlides = [
+  'https://images.unsplash.com/photo-1523170335258-f5ed11844a49?auto=format&fit=crop&w=1800&q=75',
+  'https://images.unsplash.com/photo-1524592094714-0f0654e20314?auto=format&fit=crop&w=1800&q=75',
+  'https://images.unsplash.com/photo-1547996160-81dfa63595aa?auto=format&fit=crop&w=1800&q=75',
+];
+
+const benefits = [
+  {
+    title: 'Productos originales',
+    text: 'Garantía de autenticidad.',
+    icon: 'shield',
+  },
+  {
+    title: 'Envíos seguros',
+    text: 'A todo el país.',
+    icon: 'truck',
+  },
+  {
+    title: 'Calidad premium',
+    text: 'Solo lo mejor para ti.',
+    icon: 'badge',
+  },
+  {
+    title: 'Atención personalizada',
+    text: 'Escríbenos por WhatsApp.',
+    icon: 'whatsapp',
+  },
+];
+
+const spotlightSpecs = [
+  {
+    title: 'Maquinaria automática',
+    text: 'Alta precisión.',
+    icon: 'gear',
+  },
+  {
+    title: 'Cristal de zafiro',
+    text: 'Resistente a rayaduras.',
+    icon: 'diamond',
+  },
+  {
+    title: 'Resistencia al agua',
+    text: 'Hasta 100 metros.',
+    icon: 'water',
+  },
+  {
+    title: 'Garantía',
+    text: '2 años de garantía.',
+    icon: 'shield',
+  },
+];
+---
+
+<BaseLayout>
+  {/* Hero: full-bleed brand moment */}
+  <section class="hero" data-hero>
+    <div class="hero__media" aria-hidden="true">
+      {
+        heroSlides.map((src, index) => (
+          <div class:list={['hero__slide', { 'is-active': index === 0 }]} data-hero-slide>
+            <img
+              src={src}
+              alt=""
+              width="1800"
+              height="1200"
+              fetchpriority={index === 0 ? 'high' : 'low'}
+              loading={index === 0 ? 'eager' : 'lazy'}
+            />
+          </div>
+        ))
+      }
+    </div>
+    <div class="hero__veil"></div>
+    <div class="hero__content">
+      <p class="hero__eyebrow">Estilo, precisión, distinción.</p>
+      <h1 class="hero__name">
+        <span class="hero__name-rb">RB</span><span class="hero__name-company">Company</span>
+      </h1>
+      <p class="hero__lead">
+        Relojes y accesorios masculinos. Consulta el catálogo y pide por WhatsApp.
+      </p>
+      <div class="hero__actions">
+        <a class="btn btn--outline hero__cta" href="/catalogo">
+          Ver catálogo
+          <span class="hero__cta-arrow" aria-hidden="true">→</span>
+        </a>
+      </div>
+    </div>
+    <div class="hero__dots" role="tablist" aria-label="Imágenes del hero">
+      {
+        heroSlides.map((_, index) => (
+          <button
+            type="button"
+            class:list={[{ 'is-active': index === 0 }]}
+            aria-label={`Mostrar imagen ${index + 1}`}
+            data-hero-dot
+            data-index={index}
+          />
+        ))
+      }
+    </div>
+  </section>
+
+  {/* Brand strip: one marquee max */}
+  <div class="marks" aria-hidden="true">
+    <div class="marks__track">
+      {[...brandMarks, ...brandMarks].map((brand) => (
+        <span>{brand}</span>
+      ))}
+    </div>
+  </div>
+
+  <section class="benefits" aria-label="Beneficios">
+    <div class="container benefits__grid">
+      {
+        benefits.map((item) => (
+          <div class="benefits__item">
+            <span class="benefits__icon" aria-hidden="true">
+              {item.icon === 'shield' && (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M12 3l7 3v5c0 4.4-2.9 7.7-7 9-4.1-1.3-7-4.6-7-9V6l7-3z"></path>
+                  <path d="M9.2 12.1l1.9 1.9 3.8-4" stroke-linecap="round" stroke-linejoin="round"></path>
+                </svg>
+              )}
+              {item.icon === 'truck' && (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M3 7h11v9H3V7z"></path>
+                  <path d="M14 10h3.5L20 13v3h-6v-6z"></path>
+                  <circle cx="7.5" cy="17.5" r="1.5"></circle>
+                  <circle cx="17" cy="17.5" r="1.5"></circle>
+                </svg>
+              )}
+              {item.icon === 'badge' && (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <circle cx="12" cy="14" r="5.25"></circle>
+                  <circle cx="12" cy="14" r="2.4"></circle>
+                  <path d="M9.4 9.4L8 3.5l4 2.2 4-2.2-1.4 5.9" stroke-linejoin="round"></path>
+                </svg>
+              )}
+              {item.icon === 'whatsapp' && (
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.435 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"></path>
+                </svg>
+              )}
+            </span>
+            <div>
+              <h2>{item.title}</h2>
+              <p>{item.text}</p>
+            </div>
+          </div>
+        ))
+      }
+    </div>
+  </section>
+
+  {/* Collections: 3D coverflow */}
+  <section class="section collections">
+    <div class="container">
+      <header class="collections__head">
+        <div>
+          <p class="collections__eyebrow">Colecciones</p>
+          <h2 class="collections__title">
+            Explora nuestro <em>catálogo</em>
+          </h2>
+        </div>
+        <a class="collections__all" href="/catalogo">
+          Ver todo el catálogo
+          <span aria-hidden="true">→</span>
+        </a>
+      </header>
+
+      <div class="coverflow" data-coverflow>
+        <div class="coverflow__stage">
+          <div class="coverflow__world">
+            <div class="coverflow__floor" aria-hidden="true"></div>
+            {
+              categories.map((category, index) => (
+                <article
+                  class:list={['coverflow__card', { 'is-active': index === 1 }]}
+                  data-coverflow-card
+                  data-index={index}
+                  data-pos={index - 1}
+                >
+                <a href={`/catalogo/${category.slug}`} draggable="false">
+                  <img
+                    class="coverflow__photo"
+                    src={category.imagen}
+                    alt=""
+                    width="720"
+                    height="960"
+                    loading="lazy"
+                    decoding="async"
+                    draggable="false"
+                  />
+                  <span class="coverflow__shade"></span>
+                  <span class="coverflow__body">
+                    <span class="coverflow__num">{String(index + 1).padStart(2, '0')}</span>
+                    <h3>{category.nombre}</h3>
+                    <span class="coverflow__link">
+                      Ver colección
+                      <span aria-hidden="true">→</span>
+                    </span>
+                  </span>
+                </a>
+                <span class="coverflow__badge" aria-hidden="true">
+                  {category.slug === 'relojes' && (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                      <circle cx="12" cy="13" r="6.2"></circle>
+                      <path d="M9 7.2V4.8h6V7.2M12 13l2.1-1.4M9.2 3.8h5.6" stroke-linecap="round"></path>
+                    </svg>
+                  )}
+                  {category.slug === 'pulseras' && (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                      <ellipse cx="12" cy="12" rx="7" ry="4.2"></ellipse>
+                      <path d="M5.2 12c1.2 3.6 3.8 5.8 6.8 5.8S17.6 15.6 18.8 12" stroke-linecap="round"></path>
+                    </svg>
+                  )}
+                  {category.slug === 'billeteras' && (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                      <rect x="3.5" y="7" width="17" height="11" rx="1.6"></rect>
+                      <path d="M3.5 10h17M16.2 13.6h2.2" stroke-linecap="round"></path>
+                    </svg>
+                  )}
+                  {category.slug === 'cuidado-personal' && (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                      <path d="M10 4h4l.8 3.2H9.2L10 4zM9.2 7.2h5.6V19a2 2 0 01-2 2h-1.6a2 2 0 01-2-2V7.2z"></path>
+                    </svg>
+                  )}
+                </span>
+              </article>
+            ))
+          }
+          </div>
+        </div>
+
+        <button type="button" class="coverflow__nav coverflow__nav--prev" aria-label="Anterior" data-coverflow-prev>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+            <path d="M14.5 6.5L9 12l5.5 5.5" stroke-linecap="round" stroke-linejoin="round"></path>
+          </svg>
+        </button>
+        <button type="button" class="coverflow__nav coverflow__nav--next" aria-label="Siguiente" data-coverflow-next>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+            <path d="M9.5 6.5L15 12l-5.5 5.5" stroke-linecap="round" stroke-linejoin="round"></path>
+          </svg>
+        </button>
+      </div>
+
+      <div class="coverflow__pager" data-coverflow-pager style="--active: 1">
+        <span class="coverflow__pager-bar" data-coverflow-bar></span>
+        {
+          categories.map((category, index) => (
+            <button
+              type="button"
+              class:list={[{ 'is-active': index === 1 }]}
+              aria-label={category.nombre}
+              data-coverflow-dot
+              data-index={index}
+            />
+          ))
+        }
+      </div>
+      <p class="coverflow__hint">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <path d="M10 9.5V7.2a1.4 1.4 0 012.8 0V11M12.8 10.2V9a1.2 1.2 0 012.4 0v2.4M15.2 10.6v-.6a1.1 1.1 0 012.2 0V13c0 3.2-1.7 5.6-5.2 5.6h-.8c-2.4 0-4.4-1.4-5.2-3.6L5.4 12a1.1 1.1 0 011.9-1.1L9 13" stroke-linecap="round" stroke-linejoin="round"></path>
+        </svg>
+        <span class="coverflow__hint-copy coverflow__hint-copy--desktop">
+          Desliza o haz clic en una categoría para <strong>descubrir más</strong>
+        </span>
+        <span class="coverflow__hint-copy coverflow__hint-copy--tablet">Desliza para ver las colecciones</span>
+      </p>
+
+      <nav class="vitrina-m" aria-label="Colecciones">
+        {
+          categories.map((category) => (
+            <a
+              class={`vitrina-m__tile vitrina-m__tile--${category.slug}`}
+              href={`/catalogo/${category.slug}`}
+            >
+              <img
+                src={category.imagen}
+                alt=""
+                width="720"
+                height="960"
+                loading="lazy"
+                decoding="async"
+              />
+              <span class="vitrina-m__shade"></span>
+              <span class="vitrina-m__meta">
+                <span class="vitrina-m__name">{category.nombre}</span>
+                <span class="vitrina-m__go">
+                  Ver colección
+                  <span aria-hidden="true">→</span>
+                </span>
+              </span>
+            </a>
+          ))
+        }
+      </nav>
+    </div>
+  </section>
+
+  <aside class="cf-tuner" data-cf-tuner hidden>
+    <div class="cf-tuner__head">
+      <p>Vitrina 3D</p>
+      <button type="button" data-cf-collapse aria-label="Minimizar">−</button>
+    </div>
+    <form class="cf-tuner__body" data-cf-form></form>
+    <div class="cf-tuner__actions">
+      <button type="button" data-cf-copy>Copiar CSS</button>
+      <button type="button" data-cf-reset>Restablecer</button>
+    </div>
+  </aside>
+
+  {/* Featured: spotlight + secondary strip */}
+  {
+    spotlight && (
+      <section class="section featured">
+        <div class="container">
+          <p class="eyebrow">Selección</p>
+          <h2 class="section-title">Piezas destacadas</h2>
+          <hr class="divider" />
+
+          <article class="spotlight">
+            <a class="spotlight__media" href={`/catalogo/${spotlight.categoriaSlug}/${spotlight.slug}`}>
+              <img
+                src={spotlight.imagenPrincipal.full}
+                alt={spotlight.imagenPrincipal.alt}
+                width="1200"
+                height="900"
+                loading="lazy"
+                decoding="async"
+              />
+            </a>
+            <div class="spotlight__body">
+              <p class="spotlight__brand">{spotlight.marca}</p>
+              <h3 class="spotlight__title">
+                <a href={`/catalogo/${spotlight.categoriaSlug}/${spotlight.slug}`}>
+                  {spotlight.nombre}
+                </a>
+              </h3>
+              <p class="spotlight__code">Código {spotlight.codigo}</p>
+              <p class="spotlight__desc">{spotlight.descripcion}</p>
+              <div class="price">
+                <span class="price__current">{formatPrice(spotlight.precioReal)}</span>
+                {spotlight.descuento > 0 && (
+                  <>
+                    <span class="price__original">{formatPrice(spotlight.precioOriginal)}</span>
+                    <span class="price__discount">-{spotlight.descuento}%</span>
+                  </>
+                )}
+              </div>
+              <a
+                class="btn btn--outline spotlight__link"
+                href={`/catalogo/${spotlight.categoriaSlug}/${spotlight.slug}`}
+              >
+                Ver pieza
+                <span class="spotlight__link-arrow" aria-hidden="true">→</span>
+              </a>
+            </div>
+
+            <ul class="spotlight__specs">
+              {spotlightSpecs.map((spec) => (
+                <li>
+                  <span class="spotlight__spec-icon" aria-hidden="true">
+                    {spec.icon === 'gear' && (
+                      <svg viewBox="0 0 24 24" fill="none" stroke="#c9a227" stroke-width="1.6">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2M6.1 6.1l1.6 1.6M16.3 16.3l1.6 1.6M17.9 6.1l-1.6 1.6M7.7 16.3l-1.6 1.6" stroke-linecap="round"></path>
+                        <circle cx="12" cy="12" r="7.5"></circle>
+                      </svg>
+                    )}
+                    {spec.icon === 'diamond' && (
+                      <svg viewBox="0 0 24 24" fill="none" stroke="#c9a227" stroke-width="1.6">
+                        <path d="M6 8l6-4 6 4-6 13L6 8z" stroke-linejoin="round"></path>
+                        <path d="M6 8h12M9.5 8l2.5 13M14.5 8L12 21" stroke-linejoin="round"></path>
+                      </svg>
+                    )}
+                    {spec.icon === 'water' && (
+                      <svg viewBox="0 0 24 24" fill="none" stroke="#c9a227" stroke-width="1.6">
+                        <path d="M12 3.5c3.8 4.2 6.5 7.6 6.5 10.6a6.5 6.5 0 11-13 0C5.5 11.1 8.2 7.7 12 3.5z" stroke-linejoin="round"></path>
+                        <path d="M9.2 13.4l1.8 1.8 3.4-3.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                      </svg>
+                    )}
+                    {spec.icon === 'shield' && (
+                      <svg viewBox="0 0 24 24" fill="none" stroke="#c9a227" stroke-width="1.6">
+                        <path d="M12 3l7 3v5c0 4.4-2.9 7.7-7 9-4.1-1.3-7-4.6-7-9V6l7-3z"></path>
+                        <path d="M9.2 12.1l1.9 1.9 3.8-4" stroke-linecap="round" stroke-linejoin="round"></path>
+                      </svg>
+                    )}
+                  </span>
+                  <div>
+                    <strong>{spec.title}</strong>
+                    <span>{spec.text}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </article>
+
+          {carouselProducts.length > 0 && (
+            <div class="carousel" data-carousel>
+              <button
+                type="button"
+                class="carousel__nav carousel__nav--prev"
+                aria-label="Anterior"
+                data-carousel-prev
+              >
+                ‹
+              </button>
+              <div class="carousel__track" data-carousel-track>
+                {carouselProducts.map((product) => (
+                  <div class="carousel__slide">
+                    <ProductCard product={product} />
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                class="carousel__nav carousel__nav--next"
+                aria-label="Siguiente"
+                data-carousel-next
+              >
+                ›
+              </button>
+            </div>
+          )}
+        </div>
+      </section>
+    )
+  }
+
+  {/* Order close: typographic, not a card panel */}
+  <section class="order">
+    <div class="order__media" aria-hidden="true">
+      <img src="/footer-hero.webp" alt="" width="1600" height="900" loading="lazy" decoding="async" />
+    </div>
+    <div class="order__veil"></div>
+    <div class="container order__inner">
+      <h2 class="order__title">
+        Elige la pieza.
+        <em> Escríbenos por WhatsApp.</em>
+      </h2>
+      <p class="order__lead">
+        Sin carrito ni pasarela. Confirmamos stock, envío y forma de pago en la conversación.
+      </p>
+      <WhatsAppButton
+        message={generalWhatsAppMessage('Quiero asesoría para elegir un producto.')}
+        label="Escribir ahora"
+        variant="gold"
+        class="order__cta"
+      />
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  /* --- Hero --- */
+  .hero {
+    position: relative;
+    min-height: min(70dvh, 36rem);
+    display: grid;
+    align-items: end;
+    overflow: hidden;
+  }
+
+  .hero__media {
+    position: absolute;
+    inset: 0;
+  }
+
+  .hero__slide {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 0.9s ease;
+  }
+
+  .hero__slide.is-active {
+    opacity: 1;
+  }
+
+  .hero__slide img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 32%;
+  }
+
+  .hero__veil {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background:
+      linear-gradient(
+        105deg,
+        rgb(8 8 8 / 0.92) 0%,
+        rgb(8 8 8 / 0.72) 42%,
+        rgb(8 8 8 / 0.35) 100%
+      ),
+      linear-gradient(180deg, transparent 40%, rgb(5 5 5 / 0.95) 100%);
+  }
+
+  .hero__content {
+    position: relative;
+    z-index: 2;
+    width: min(100% - 2rem, var(--max-width));
+    margin-inline: auto;
+    padding-block: clamp(2rem, 6vh, 3.5rem) clamp(2.5rem, 7vh, 4.5rem);
+    max-width: 34rem;
+    margin-left: max(1rem, calc((100% - var(--max-width)) / 2));
+  }
+
+  .hero__eyebrow {
+    font-size: 0.7rem;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--color-gold);
+    margin-bottom: 0.9rem;
+  }
+
+  .hero__name {
+    font-family: var(--font-display);
+    font-size: clamp(2.1rem, 5.5vw, 3.4rem);
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-gold-bright);
+    line-height: 1.05;
+    margin-bottom: 0.9rem;
+  }
+
+  .hero__name-company {
+    color: var(--color-white);
+  }
+
+  .hero__lead {
+    color: var(--color-silver);
+    max-width: 28ch;
+    font-size: 1.05rem;
+    line-height: 1.55;
+    margin-bottom: 1.5rem;
+  }
+
+  .hero__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.85rem;
+  }
+
+  .hero__cta {
+    background: var(--color-black);
+    border-color: var(--color-gold);
+    color: var(--color-gold-bright);
+    gap: 0.85rem;
+  }
+
+  .hero__cta-arrow {
+    font-size: 1.35em;
+    line-height: 1;
+    font-weight: 400;
+  }
+
+  .hero__cta:hover {
+    background: var(--color-black-elevated);
+    color: var(--color-gold-bright);
+  }
+
+  .hero__dots {
+    position: absolute;
+    left: 50%;
+    bottom: 1.25rem;
+    transform: translateX(-50%);
+    z-index: 2;
+    display: flex;
+    gap: 0.55rem;
+  }
+
+  .hero__dots button {
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 50%;
+    background: rgb(200 200 200 / 0.45);
+    transition:
+      background var(--transition),
+      transform var(--transition);
+  }
+
+  .hero__dots button.is-active {
+    background: var(--color-gold);
+    transform: scale(1.25);
+  }
+
+  /* --- Brand marks marquee --- */
+  .marks {
+    border-block: 1px solid rgb(201 162 39 / 0.16);
+    background: var(--color-black-soft);
+    overflow: hidden;
+    padding-block: 0.95rem;
+  }
+
+  .marks__track {
+    display: flex;
+    width: max-content;
+    gap: 3.5rem;
+    padding-inline: 1.5rem;
+  }
+
+  .marks__track span {
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--color-silver-dim);
+    white-space: nowrap;
+  }
+
+  /* --- Benefits bar --- */
+  .benefits {
+    border-bottom: 1px solid rgb(201 162 39 / 0.14);
+    background: #080808;
+    padding-block: 2rem;
+  }
+
+  .benefits__grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .benefits__item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.45rem 1.2rem;
+    min-width: 0;
+  }
+
+  .benefits__item:not(:last-child) {
+    border-right: 1px solid rgb(200 200 200 / 0.18);
+  }
+
+  .benefits__icon {
+    display: grid;
+    place-items: center;
+    width: 3rem;
+    height: 3rem;
+    flex-shrink: 0;
+    color: var(--color-gold);
+  }
+
+  .benefits__icon svg {
+    width: 2rem;
+    height: 2rem;
+  }
+
+  .benefits__item h2 {
+    font-family: var(--font-body);
+    font-size: 0.88rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-white);
+    margin-bottom: 0.28rem;
+    line-height: 1.25;
+  }
+
+  .benefits__item p {
+    font-size: 0.95rem;
+    color: var(--color-silver-dim);
+    line-height: 1.35;
+  }
+
+  /* --- Collections 3D coverflow --- */
+  .collections {
+    --cf-bg-x: 37%;
+    --cf-bg-y: 80%;
+    --cf-bg-size: 100%;
+    position: relative;
+    overflow: hidden;
+    background-color: #050505;
+    background-image:
+      linear-gradient(180deg, rgb(5 5 5 / 0.28) 0%, rgb(5 5 5 / 0.08) 38%, rgb(5 5 5 / 0.4) 100%),
+      url('/collections-bg.png');
+    background-repeat: no-repeat, no-repeat;
+    background-position: center, var(--cf-bg-x) var(--cf-bg-y);
+    background-size: cover, var(--cf-bg-size) auto;
+  }
+
+  .collections__head {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .collections__eyebrow {
+    font-size: 0.72rem;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--color-gold);
+    margin-bottom: 0.55rem;
+  }
+
+  .collections__title {
+    font-size: clamp(2rem, 4vw, 2.8rem);
+    font-weight: 500;
+  }
+
+  .collections__title em {
+    font-style: italic;
+    color: var(--color-gold-bright);
+  }
+
+  .collections__all {
+    font-size: 0.72rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--color-gold);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding-bottom: 0.35rem;
+    white-space: nowrap;
+  }
+
+  .collections__all:hover {
+    color: var(--color-gold-bright);
+  }
+
+  .coverflow {
+    --cf-perspective: 1800px;
+    --cf-origin-y: 40%;
+    --cf-scene-rx: 0deg;
+    --cf-card-w: clamp(18rem, 25.1vw, 22.6rem);
+    --cf-card-h: clamp(26rem, 36.1vw, 32.5rem);
+    --cf-origin: 50% 50%;
+    --cf-c1-x: clamp(-34.2rem, -38vw, -22rem);
+    --cf-c1-z: -4px;
+    --cf-c1-ry: -23.5deg;
+    --cf-c1-s: 0.96;
+    --cf-c1-b: 0.75;
+    --cf-c2-x: clamp(-12.4rem, -13.75vw, -9rem);
+    --cf-c2-z: 48px;
+    --cf-c2-ry: -11.5deg;
+    --cf-c2-s: 1.05;
+    --cf-c2-b: 0.76;
+    --cf-c3-x: clamp(7.5rem, 11.4vw, 10.3rem);
+    --cf-c3-z: 94px;
+    --cf-c3-ry: 18deg;
+    --cf-c3-s: 0.94;
+    --cf-c3-b: 0.76;
+    --cf-c4-x: clamp(20rem, 33.8vw, 30.4rem);
+    --cf-c4-z: 68px;
+    --cf-c4-ry: 10deg;
+    --cf-c4-s: 0.9;
+    --cf-c4-b: 0.58;
+    --cf-scale-hover: 0.98;
+    --cf-bright-hover: 0.88;
+    --cf-duration: 720ms;
+    --cf-floor: 0.12;
+    position: relative;
+    touch-action: pan-y;
+  }
+
+  .coverflow__stage {
+    position: relative;
+    height: clamp(30rem, 42vw, 38rem);
+    perspective: var(--cf-perspective);
+    perspective-origin: 50% var(--cf-origin-y);
+    transform-style: preserve-3d;
+    z-index: 0;
+    touch-action: pan-y;
+    user-select: none;
+    cursor: grab;
+  }
+
+  .coverflow__stage.is-dragging {
+    cursor: grabbing;
+  }
+
+  .coverflow__world {
+    position: relative;
+    height: 100%;
+    transform-style: preserve-3d;
+    transform-origin: 50% 85%;
+    transform: rotateX(var(--cf-scene-rx));
+    transition: transform var(--cf-duration) cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .coverflow__floor {
+    position: absolute;
+    left: 10%;
+    right: 10%;
+    bottom: 0.85rem;
+    height: 5rem;
+    background: radial-gradient(
+      ellipse at center,
+      rgb(255 255 255 / var(--cf-floor)),
+      rgb(201 162 39 / 0.05) 38%,
+      transparent 70%
+    );
+    filter: blur(22px);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .coverflow__card {
+    --x: 0px;
+    --z: 0px;
+    --ry: 0deg;
+    --s: 1;
+    --b: 1;
+    --frame: var(--color-silver);
+    --px: 0px;
+    --py: 0px;
+    position: absolute;
+    left: 50%;
+    top: 1.35rem;
+    width: var(--cf-card-w);
+    height: var(--cf-card-h);
+    margin-left: calc(var(--cf-card-w) / -2);
+    transform: translate3d(var(--x), 0, var(--z)) rotateY(var(--ry)) scale(var(--s));
+    transform-style: preserve-3d;
+    transform-origin: var(--cf-origin);
+    transition:
+      transform var(--cf-duration) cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow var(--cf-duration) cubic-bezier(0.22, 1, 0.36, 1);
+    background: #070707;
+    overflow: visible;
+    will-change: transform;
+    border-radius: 0.5rem;
+    box-shadow: 0 22px 38px rgb(0 0 0 / 0.4);
+  }
+
+  .coverflow__card::before {
+    content: '';
+    position: absolute;
+    left: 12%;
+    right: 12%;
+    bottom: -1.2rem;
+    height: 1.4rem;
+    border-radius: 50%;
+    background: rgb(0 0 0 / 0.52);
+    filter: blur(16px);
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  .coverflow__card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 6;
+    pointer-events: none;
+    border-radius: inherit;
+    box-shadow: inset 0 0 0 1px var(--frame);
+  }
+
+  .coverflow__card[data-pos='0'] {
+    --x: var(--cf-c2-x);
+    --z: var(--cf-c2-z);
+    --ry: var(--cf-c2-ry);
+    --s: var(--cf-c2-s);
+    --b: var(--cf-c2-b);
+    --frame: var(--color-gold);
+    box-shadow: 0 36px 60px rgb(0 0 0 / 0.52);
+    z-index: 8;
+  }
+
+  .coverflow__card[data-pos='0']::before {
+    left: 8%;
+    right: 8%;
+    bottom: -1.4rem;
+    height: 1.65rem;
+    background: rgb(0 0 0 / 0.62);
+    filter: blur(18px);
+  }
+
+  .coverflow__card[data-pos='-1'] {
+    --x: var(--cf-c1-x);
+    --z: var(--cf-c1-z);
+    --ry: var(--cf-c1-ry);
+    --s: var(--cf-c1-s);
+    --b: var(--cf-c1-b);
+    z-index: 5;
+  }
+
+  .coverflow__card[data-pos='1'] {
+    --x: var(--cf-c3-x);
+    --z: var(--cf-c3-z);
+    --ry: var(--cf-c3-ry);
+    --s: var(--cf-c3-s);
+    --b: var(--cf-c3-b);
+    z-index: 5;
+  }
+
+  .coverflow__card[data-pos='-2'] {
+    --x: calc(var(--cf-c1-x) * 2);
+    --z: var(--cf-c4-z);
+    --ry: var(--cf-c1-ry);
+    --s: var(--cf-c4-s);
+    --b: var(--cf-c4-b);
+    z-index: 2;
+  }
+
+  .coverflow__card[data-pos='2'] {
+    --x: var(--cf-c4-x);
+    --z: var(--cf-c4-z);
+    --ry: var(--cf-c4-ry);
+    --s: var(--cf-c4-s);
+    --b: var(--cf-c4-b);
+    z-index: 2;
+  }
+
+  .coverflow__card[data-pos='-1']:hover:not(.is-active),
+  .coverflow__card[data-pos='1']:hover:not(.is-active) {
+    --s: var(--cf-scale-hover);
+    --b: var(--cf-bright-hover);
+    --frame: var(--color-silver-bright);
+  }
+
+  .coverflow__card a {
+    position: relative;
+    display: block;
+    height: 100%;
+    overflow: hidden;
+    border-radius: inherit;
+    background: #070707;
+    filter: brightness(var(--b));
+    transition: filter var(--cf-duration) cubic-bezier(0.22, 1, 0.36, 1);
+    touch-action: pan-y;
+    -webkit-user-drag: none;
+    user-select: none;
+  }
+
+  .coverflow__photo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scale(1.08) translate3d(var(--px), var(--py), 0);
+    transition: transform 420ms ease;
+    -webkit-user-drag: none;
+    user-select: none;
+    pointer-events: none;
+  }
+
+  .coverflow__card.is-active .coverflow__photo {
+    filter: saturate(1.06) contrast(1.05);
+  }
+
+  .coverflow__shade {
+    position: absolute;
+    inset: auto 0 0;
+    height: 58%;
+    background: linear-gradient(180deg, transparent, rgb(0 0 0 / 0.92));
+    pointer-events: none;
+  }
+
+  .coverflow__body {
+    position: absolute;
+    left: 1.15rem;
+    right: 1.15rem;
+    bottom: 1.15rem;
+    z-index: 1;
+  }
+
+  .coverflow__num {
+    display: block;
+    font-size: 0.92rem;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--color-gold);
+    margin-bottom: 0.45rem;
+  }
+
+  .coverflow__body h3 {
+    font-size: 1.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 0.65rem;
+    transition: font-size 780ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .coverflow__card.is-active .coverflow__body h3 {
+    font-size: 2.25rem;
+  }
+
+  .coverflow__link {
+    font-size: 0.88rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--color-gold);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .coverflow__badge {
+    position: absolute;
+    left: 0.85rem;
+    top: 50%;
+    z-index: 12;
+    display: grid;
+    place-items: center;
+    width: 5rem;
+    height: 5rem;
+    border-radius: 50%;
+    background: #0a0a0a;
+    border: 1px solid rgb(200 200 200 / 0.28);
+    color: var(--color-silver);
+    transform: translate(-50%, -50%) translateZ(56px) rotateY(calc(var(--ry) * -1));
+    transition:
+      transform var(--cf-duration) cubic-bezier(0.22, 1, 0.36, 1),
+      left var(--cf-duration) cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow var(--cf-duration) ease,
+      border-color var(--cf-duration) ease,
+      color var(--cf-duration) ease;
+    box-shadow: 0 10px 24px rgb(0 0 0 / 0.42);
+    pointer-events: none;
+  }
+
+  .coverflow__badge svg {
+    width: 1.9rem;
+    height: 1.9rem;
+  }
+
+  .coverflow__card.is-active .coverflow__badge {
+    left: 1.85rem;
+    border-color: var(--color-gold-bright);
+    color: var(--color-gold-bright);
+    box-shadow:
+      0 0 0 1px rgb(232 197 71 / 0.35),
+      0 0 14px rgb(201 162 39 / 0.5),
+      0 0 32px rgb(201 162 39 / 0.28),
+      0 10px 24px rgb(0 0 0 / 0.42);
+  }
+
+  .coverflow__card[data-pos='-1'] .coverflow__badge {
+    opacity: 0;
+  }
+
+  .coverflow__nav {
+    position: absolute;
+    top: 46%;
+    z-index: 14;
+    display: grid;
+    place-items: center;
+    width: 3.5rem;
+    height: 3.5rem;
+    padding: 0;
+    border-radius: 50%;
+    border: 1px solid rgb(200 200 200 / 0.28);
+    color: var(--color-gold);
+    background: rgb(8 8 8 / 0.92);
+  }
+
+  .coverflow__nav svg {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  .coverflow__nav--prev {
+    left: -0.35rem;
+  }
+
+  .coverflow__nav--next {
+    right: -0.35rem;
+  }
+
+  .coverflow__nav:hover {
+    border-color: var(--color-gold);
+    color: var(--color-gold-bright);
+  }
+
+  .coverflow__pager {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    width: max-content;
+    margin: 1.7rem auto 0;
+  }
+
+  .coverflow__pager button {
+    width: 1.85rem;
+    height: 2px;
+    background: rgb(200 200 200 / 0.22);
+  }
+
+  .coverflow__pager-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 1.85rem;
+    height: 2px;
+    background: var(--color-gold);
+    transform: translateX(calc(var(--active, 0) * 2.35rem));
+    transition: transform 780ms cubic-bezier(0.22, 1, 0.36, 1);
+    pointer-events: none;
+  }
+
+  .coverflow__hint {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+    text-align: center;
+    margin-top: 0.95rem;
+    font-size: 0.85rem;
+    color: var(--color-silver);
+  }
+
+  .coverflow__hint svg {
+    flex-shrink: 0;
+    color: var(--color-silver-dim);
+  }
+
+  .coverflow__hint strong {
+    color: var(--color-gold);
+    font-weight: 500;
+  }
+
+  .coverflow__hint-copy--tablet {
+    display: none;
+  }
+
+  .vitrina-m {
+    display: none;
+  }
+
+  .vitrina-m__tile {
+    position: relative;
+    display: block;
+    overflow: hidden;
+    border-radius: 0.5rem;
+    background: #070707;
+    isolation: isolate;
+    min-height: 15.5rem;
+    box-shadow:
+      inset 0 0 0 1px rgb(200 200 200 / 0.28),
+      0 18px 40px rgb(0 0 0 / 0.45);
+  }
+
+  .vitrina-m__tile img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 720ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .vitrina-m__tile--relojes img {
+    object-position: 58% 42%;
+  }
+
+  .vitrina-m__tile--pulseras img,
+  .vitrina-m__tile--billeteras img {
+    object-position: 50% 40%;
+  }
+
+  .vitrina-m__tile--cuidado-personal img {
+    object-position: 50% 58%;
+  }
+
+  .vitrina-m__shade {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, transparent 38%, rgb(0 0 0 / 0.88));
+    pointer-events: none;
+  }
+
+  .vitrina-m__meta {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1;
+    padding: 1.15rem 1.1rem 1.05rem;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.28rem;
+  }
+
+  .vitrina-m__name {
+    font-family: var(--font-display);
+    font-size: 1.85rem;
+    font-weight: 500;
+    line-height: 1.1;
+    color: var(--color-white);
+  }
+
+  .vitrina-m__go {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-gold);
+  }
+
+  .vitrina-m__tile:active {
+    transform: scale(0.985);
+  }
+
+  .vitrina-m__tile:focus-visible {
+    outline: 2px solid var(--color-gold);
+    outline-offset: 3px;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .vitrina-m__tile:hover img,
+    .vitrina-m__tile:focus-visible img {
+      transform: scale(1.05);
+    }
+  }
+
+  .cf-tuner {
+    position: fixed;
+    top: 5.5rem;
+    right: 1rem;
+    z-index: 80;
+    box-sizing: border-box;
+    width: 18.75rem;
+    max-width: 18.75rem;
+    max-height: calc(100dvh - 6.5rem);
+    overflow-x: hidden;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+    padding: 0.85rem 0.9rem 0.95rem;
+    border: 1px solid rgb(201 162 39 / 0.28);
+    background: rgb(10 10 10 / 0.94);
+    color: var(--color-silver);
+    box-shadow: 0 18px 40px rgb(0 0 0 / 0.45);
+  }
+
+  .cf-tuner[hidden] {
+    display: none;
+  }
+
+  .cf-tuner__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+  }
+
+  .cf-tuner__head p {
+    font-size: 0.68rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--color-gold);
+  }
+
+  .cf-tuner__head button,
+  .cf-tuner__actions button {
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-gold);
+    border: 1px solid rgb(201 162 39 / 0.35);
+    padding: 0.28rem 0.5rem;
+  }
+
+  .cf-tuner__head button:hover,
+  .cf-tuner__actions button:hover {
+    border-color: var(--color-gold);
+    color: var(--color-gold-bright);
+  }
+
+  .cf-tuner.is-min .cf-tuner__body,
+  .cf-tuner.is-min .cf-tuner__actions {
+    display: none;
+  }
+
+  .cf-tuner :global(.cf-tuner__group) {
+    margin-bottom: 0.85rem;
+  }
+
+  .cf-tuner :global(.cf-tuner__group) > p {
+    font-size: 0.62rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--color-silver-dim);
+    margin-bottom: 0.45rem;
+  }
+
+  .cf-tuner :global(.cf-tuner__field) {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.28rem;
+    margin-bottom: 0.7rem;
+    font-size: 0.72rem;
+  }
+
+  .cf-tuner :global(.cf-tuner__meta) {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.5rem;
+  }
+
+  .cf-tuner :global(.cf-tuner__name) {
+    min-width: 0;
+  }
+
+  .cf-tuner :global(.cf-tuner__value) {
+    flex: 0 0 auto;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    color: var(--color-gold-bright);
+  }
+
+  .cf-tuner :global(.cf-tuner__range) {
+    display: block;
+    width: 100%;
+    margin: 0;
+    accent-color: var(--color-gold);
+  }
+
+  .cf-tuner :global(select) {
+    display: block;
+    width: 100%;
+    font: inherit;
+    color: var(--color-white);
+    background: #111;
+    border: 1px solid rgb(200 200 200 / 0.2);
+    padding: 0.3rem 0.4rem;
+  }
+
+  .cf-tuner__actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.4rem;
+    margin-top: 0.35rem;
+  }
+
+  @media (max-width: 1023px) {
+    .cf-tuner {
+      display: none;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .cf-tuner {
+      left: 0.75rem;
+      right: 0.75rem;
+      top: auto;
+      bottom: 0.75rem;
+      width: auto;
+      max-width: none;
+      max-height: 42vh;
+    }
+  }
+
+  /* --- Featured spotlight --- */
+  .featured {
+    background: linear-gradient(180deg, transparent, rgb(20 20 20 / 0.55), transparent);
+  }
+
+  .spotlight {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) minmax(16rem, 0.95fr);
+    gap: clamp(1.5rem, 3.5vw, 2.75rem);
+    align-items: center;
+    margin-top: var(--space-lg);
+    margin-bottom: var(--space-xl);
+  }
+
+  .spotlight__media {
+    display: block;
+    aspect-ratio: 4 / 3;
+    width: 100%;
+    max-width: none;
+    overflow: hidden;
+    border: 1px solid rgb(201 162 39 / 0.16);
+    background: var(--color-black-elevated);
+  }
+
+  .spotlight__media img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    transition: transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .spotlight__media:hover img {
+    transform: scale(1.04);
+  }
+
+  .spotlight__brand {
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--color-gold);
+    margin-bottom: 0.55rem;
+  }
+
+  .spotlight__title {
+    font-size: clamp(2rem, 4vw, 3rem);
+    margin-bottom: 0.35rem;
+  }
+
+  .spotlight__title a:hover {
+    color: var(--color-gold-bright);
+  }
+
+  .spotlight__code {
+    font-size: 0.75rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-silver-dim);
+    margin-bottom: 1rem;
+  }
+
+  .spotlight__desc {
+    color: var(--color-silver);
+    max-width: 38ch;
+    margin-bottom: 1.25rem;
+  }
+
+  .spotlight__body .price__current {
+    font-size: 2.35rem;
+  }
+
+  .spotlight__body .price__original {
+    font-size: 1.15rem;
+  }
+
+  .spotlight__body .price__discount {
+    font-size: 0.8rem;
+    padding: 0.28rem 0.55rem;
+  }
+
+  .spotlight__link {
+    margin-top: 1.25rem;
+    gap: 0.85rem;
+  }
+
+  .spotlight__link-arrow {
+    font-size: 1.35em;
+    line-height: 1;
+  }
+
+  .spotlight__specs {
+    display: grid;
+    gap: 1.65rem;
+    align-content: start;
+    padding-left: 1.5rem;
+    border-left: 1px solid rgb(200 200 200 / 0.2);
+  }
+
+  .spotlight__specs li {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .spotlight__spec-icon {
+    display: grid;
+    place-items: center;
+    width: 3rem;
+    height: 3rem;
+    flex-shrink: 0;
+    color: #c9a227;
+    margin-top: 0;
+  }
+
+  .spotlight__spec-icon svg {
+    width: 2.25rem;
+    height: 2.25rem;
+    stroke: #c9a227;
+  }
+
+  .spotlight__specs strong {
+    display: block;
+    font-family: var(--font-body);
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--color-white);
+    margin-bottom: 0.25rem;
+  }
+
+  .spotlight__specs span {
+    display: block;
+    font-size: 1rem;
+    color: var(--color-silver-dim);
+  }
+
+  .carousel {
+    position: relative;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 0.85rem;
+    margin-top: 0.5rem;
+  }
+
+  .carousel__track {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: calc((100% - 2rem) / 3);
+    gap: 1rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-block: 0.25rem;
+    touch-action: pan-y;
+    cursor: grab;
+    user-select: none;
+    overscroll-behavior-x: contain;
+  }
+
+  .carousel__track.is-dragging {
+    cursor: grabbing;
+    scroll-snap-type: none;
+  }
+
+  .carousel__track::-webkit-scrollbar {
+    display: none;
+  }
+
+  .carousel__track :global(img) {
+    -webkit-user-drag: none;
+    pointer-events: none;
+  }
+
+  .carousel__slide {
+    min-width: 0;
+  }
+
+  .carousel__nav {
+    width: 2.6rem;
+    height: 2.6rem;
+    border: 1px solid rgb(201 162 39 / 0.4);
+    color: var(--color-gold-bright);
+    font-size: 1.6rem;
+    line-height: 1;
+    transition:
+      background var(--transition),
+      color var(--transition),
+      border-color var(--transition);
+  }
+
+  .carousel__nav:hover {
+    background: var(--gold-gradient);
+    color: var(--color-black);
+    border-color: transparent;
+  }
+
+  /* --- Order close --- */
+  .order {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    padding-block: clamp(2rem, 5vw, 3.5rem);
+    border-top: 1px solid rgb(201 162 39 / 0.14);
+  }
+
+  .order__media {
+    position: absolute;
+    inset: 0;
+    z-index: -2;
+  }
+
+  .order__media img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+  }
+
+  .order__veil {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background:
+      linear-gradient(90deg, rgb(5 5 5 / 0.82) 0%, rgb(5 5 5 / 0.55) 48%, rgb(5 5 5 / 0.35) 100%),
+      linear-gradient(180deg, rgb(5 5 5 / 0.2), rgb(5 5 5 / 0.55));
+  }
+
+  .order__inner {
+    position: relative;
+    max-width: 40rem;
+    margin-left: max(1rem, calc((100% - var(--max-width)) / 2));
+    margin-right: auto;
+    text-align: left;
+  }
+
+  .order__title {
+    font-size: clamp(2.2rem, 5vw, 3.4rem);
+    line-height: 1.1;
+    margin-bottom: 1rem;
+  }
+
+  .order__title em {
+    font-style: italic;
+    color: var(--color-gold-bright);
+    display: inline;
+  }
+
+  .order__lead {
+    color: var(--color-silver-dim);
+    max-width: 34ch;
+    margin-bottom: 1.75rem;
+  }
+
+  .order__inner :global(.order__cta) {
+    white-space: nowrap;
+    min-width: 15.5rem;
+    padding-inline: 2rem;
+  }
+
+  /* --- Motion (motivated: hierarchy + storytelling) --- */
+  @media (prefers-reduced-motion: no-preference) {
+    .hero__eyebrow,
+    .hero__name,
+    .hero__lead,
+    .hero__actions {
+      animation: fade-up 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
+    .hero__name {
+      animation-delay: 0.1s;
+    }
+
+    .hero__lead {
+      animation-delay: 0.2s;
+    }
+
+    .hero__cta {
+      animation-delay: 0.3s;
+    }
+
+    .marks__track {
+      animation: marquee 28s linear infinite;
+    }
+
+    .coverflow,
+    .spotlight,
+    .order__inner {
+      animation: fade-up 0.85s cubic-bezier(0.22, 1, 0.36, 1) both;
+      animation-timeline: view();
+      animation-range: entry 8% cover 28%;
+    }
+  }
+
+  @keyframes marquee {
+    from {
+      transform: translate3d(0, 0, 0);
+    }
+    to {
+      transform: translate3d(-50%, 0, 0);
+    }
+  }
+
+  /* --- Breakpoints --- */
+  @media (max-width: 1023px) and (min-width: 700px) {
+    .coverflow {
+      --cf-perspective: none;
+      --cf-scene-rx: 0deg;
+      --cf-card-w: min(22rem, 52vw);
+      --cf-card-h: min(31.5rem, 74vw);
+      --cf-c1-x: -42%;
+      --cf-c1-z: 0px;
+      --cf-c1-ry: 0deg;
+      --cf-c1-s: 0.82;
+      --cf-c1-b: 0.7;
+      --cf-c2-x: 0px;
+      --cf-c2-z: 0px;
+      --cf-c2-ry: 0deg;
+      --cf-c2-s: 1;
+      --cf-c2-b: 1;
+      --cf-c3-x: 42%;
+      --cf-c3-z: 0px;
+      --cf-c3-ry: 0deg;
+      --cf-c3-s: 0.82;
+      --cf-c3-b: 0.7;
+      --cf-c4-x: 80%;
+      --cf-c4-z: 0px;
+      --cf-c4-ry: 0deg;
+      --cf-c4-s: 0.7;
+      --cf-c4-b: 0.5;
+      --cf-scale-hover: 0.82;
+      --cf-bright-hover: 0.7;
+    }
+
+    .coverflow__stage {
+      perspective: none;
+      height: calc(var(--cf-card-h) + 2.75rem);
+    }
+
+    .coverflow__card[data-pos='-2'],
+    .coverflow__card[data-pos='2'] {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .coverflow__badge {
+      display: none;
+    }
+
+    .coverflow__nav {
+      width: 3rem;
+      height: 3rem;
+    }
+
+    .coverflow__hint-copy--desktop {
+      display: none;
+    }
+
+    .coverflow__hint-copy--tablet {
+      display: inline;
+    }
+  }
+
+  @media (max-width: 699px) {
+    .coverflow,
+    .coverflow__pager,
+    .coverflow__hint {
+      display: none;
+    }
+
+    .collections {
+      --cf-bg-x: 50%;
+      --cf-bg-y: 50%;
+      background-image:
+        linear-gradient(180deg, rgb(5 5 5 / 0.5) 0%, rgb(5 5 5 / 0.22) 38%, rgb(5 5 5 / 0.58) 100%),
+        url('/collections-bg.png');
+      background-position: center, center;
+      background-size: cover, cover;
+    }
+
+    .collections__head {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .vitrina-m {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.7rem;
+    }
+
+    .vitrina-m__tile--relojes {
+      grid-column: 1 / -1;
+      min-height: min(68vw, 24rem);
+    }
+
+    .vitrina-m__tile--relojes .vitrina-m__name {
+      font-size: 2.15rem;
+      padding-bottom: 0.12rem;
+    }
+
+    .vitrina-m__tile--cuidado-personal {
+      grid-column: 1 / -1;
+      min-height: 11.25rem;
+    }
+
+    .vitrina-m__tile--cuidado-personal .vitrina-m__meta {
+      flex-direction: row;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+
+    .vitrina-m__tile--pulseras .vitrina-m__name,
+    .vitrina-m__tile--billeteras .vitrina-m__name {
+      font-size: 1.45rem;
+    }
+  }
+
+  @media (max-width: 400px) {
+    .vitrina-m {
+      grid-template-columns: 1fr;
+    }
+
+    .vitrina-m__tile--relojes {
+      min-height: min(68vw, 22rem);
+    }
+
+    .vitrina-m__tile--pulseras,
+    .vitrina-m__tile--billeteras,
+    .vitrina-m__tile--cuidado-personal {
+      min-height: 12.5rem;
+    }
+
+    .vitrina-m__tile--cuidado-personal .vitrina-m__meta {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.28rem;
+    }
+  }
+
+  @media (max-width: 960px) {
+    .benefits__grid {
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem 0;
+    }
+
+    .benefits__item:nth-child(2) {
+      border-right: none;
+    }
+
+    .spotlight {
+      grid-template-columns: minmax(0, 1.1fr) 1fr;
+      max-width: none;
+    }
+
+    .spotlight__media {
+      max-width: none;
+    }
+
+    .spotlight__specs {
+      grid-column: 1 / -1;
+      grid-template-columns: 1fr 1fr;
+      border-left: none;
+      border-top: 1px solid rgb(200 200 200 / 0.16);
+      padding: 1.25rem 0 0;
+    }
+
+    .carousel__track {
+      grid-auto-columns: calc((100% - 1rem) / 2);
+    }
+  }
+
+  @media (max-width: 640px) {
+    .hero {
+      min-height: min(62dvh, 28rem);
+    }
+
+    .hero__content {
+      margin-left: 1rem;
+      max-width: none;
+    }
+
+    .benefits__grid {
+      grid-template-columns: 1fr;
+      gap: 1rem;
+    }
+
+    .benefits__item {
+      padding-inline: 0;
+    }
+
+    .benefits__item:not(:last-child) {
+      border-right: none;
+      border-bottom: 1px solid rgb(200 200 200 / 0.12);
+      padding-bottom: 1rem;
+    }
+
+    .spotlight {
+      grid-template-columns: 1fr;
+    }
+
+    .spotlight__media {
+      max-width: none;
+    }
+
+    .spotlight__specs {
+      grid-template-columns: 1fr;
+    }
+
+    .carousel__track {
+      grid-auto-columns: 80%;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hero__slide {
+      transition: none;
+    }
+  }
+</style>
+
+<script>
+  function initHero(root: HTMLElement) {
+    const slides = [...root.querySelectorAll<HTMLElement>('[data-hero-slide]')];
+    const dots = [...root.querySelectorAll<HTMLButtonElement>('[data-hero-dot]')];
+    if (slides.length < 2) return;
+
+    let index = 0;
+    let timer: number | undefined;
+
+    const show = (next: number) => {
+      index = (next + slides.length) % slides.length;
+      slides.forEach((slide, i) => slide.classList.toggle('is-active', i === index));
+      dots.forEach((dot, i) => dot.classList.toggle('is-active', i === index));
+    };
+
+    const play = () => {
+      window.clearInterval(timer);
+      timer = window.setInterval(() => show(index + 1), 5000);
+    };
+
+    dots.forEach((dot) => {
+      dot.addEventListener('click', () => {
+        show(Number(dot.dataset.index || 0));
+        play();
+      });
+    });
+
+    if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      play();
+    }
+  }
+
+  document.querySelectorAll<HTMLElement>('[data-hero]').forEach(initHero);
+
+  function initCarousel(root: HTMLElement) {
+    const track = root.querySelector<HTMLElement>('[data-carousel-track]');
+    const prev = root.querySelector<HTMLButtonElement>('[data-carousel-prev]');
+    const next = root.querySelector<HTMLButtonElement>('[data-carousel-next]');
+    if (!track || !prev || !next) return;
+
+    const originals = [...track.querySelectorAll<HTMLElement>('.carousel__slide')];
+    if (originals.length === 0) return;
+
+    if (track.dataset.ready === 'true') return;
+    track.dataset.ready = 'true';
+
+    const cloneSet = () =>
+      originals.map((slide) => {
+        const clone = slide.cloneNode(true) as HTMLElement;
+        clone.setAttribute('aria-hidden', 'true');
+        return clone;
+      });
+
+    track.prepend(...cloneSet());
+    track.append(...cloneSet());
+
+    let busy = false;
+    let coasting = false;
+    let coastRaf = 0;
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    const getStep = () => {
+      const slide = track.querySelector<HTMLElement>('.carousel__slide');
+      if (!slide) return 0;
+      const styles = getComputedStyle(track);
+      const gap = parseFloat(styles.columnGap || styles.gap) || 16;
+      return slide.getBoundingClientRect().width + gap;
+    };
+
+    const setWidth = () => getStep() * originals.length;
+
+    const normalize = () => {
+      const width = setWidth();
+      if (width <= 0) return;
+      const left = track.scrollLeft;
+      if (left < width * 0.5) track.scrollLeft = left + width;
+      else if (left >= width * 1.5) track.scrollLeft = left - width;
+    };
+
+    const stopCoast = () => {
+      if (coastRaf) cancelAnimationFrame(coastRaf);
+      coastRaf = 0;
+      coasting = false;
+    };
+
+    const snapToNearest = () => {
+      const step = getStep();
+      if (!step) {
+        normalize();
+        return;
+      }
+      const nearest = Math.round(track.scrollLeft / step) * step;
+      if (Math.abs(nearest - track.scrollLeft) < 1) {
+        normalize();
+        return;
+      }
+      busy = true;
+      track.scrollTo({ left: nearest, behavior: reduceMotion ? 'auto' : 'smooth' });
+      window.setTimeout(() => {
+        normalize();
+        busy = false;
+      }, reduceMotion ? 0 : 420);
+    };
+
+    const start = () => {
+      const width = setWidth();
+      if (width <= 0) {
+        requestAnimationFrame(start);
+        return;
+      }
+      track.scrollLeft = width;
+    };
+
+    const move = (dir: number) => {
+      const step = getStep();
+      if (!step || busy) return;
+      stopCoast();
+      busy = true;
+      track.scrollBy({ left: dir * step, behavior: 'smooth' });
+      window.setTimeout(() => {
+        normalize();
+        busy = false;
+      }, 450);
+    };
+
+    prev.addEventListener('click', () => move(-1));
+    next.addEventListener('click', () => move(1));
+
+    let pointerId: number | null = null;
+    let startX = 0;
+    let startY = 0;
+    let startScroll = 0;
+    let lastX = 0;
+    let lastT = 0;
+    let velocity = 0;
+    let dragging = false;
+    let locked = false;
+    let swiped = false;
+
+    const coast = (initial: number) => {
+      let v = Math.max(-2.4, Math.min(2.4, initial));
+      if (reduceMotion || Math.abs(v) < 0.12) {
+        snapToNearest();
+        return;
+      }
+      coasting = true;
+      let prevT = performance.now();
+      const tick = (now: number) => {
+        const dt = Math.min(32, now - prevT);
+        prevT = now;
+        track.scrollLeft += v * dt;
+        normalize();
+        v *= Math.pow(0.952, dt / 16.67);
+        if (Math.abs(v) < 0.05) {
+          coastRaf = 0;
+          coasting = false;
+          snapToNearest();
+          return;
+        }
+        coastRaf = requestAnimationFrame(tick);
+      };
+      coastRaf = requestAnimationFrame(tick);
+    };
+
+    const endDrag = (event: PointerEvent) => {
+      if (!dragging && !locked) return;
+      const wasLocked = locked;
+      dragging = false;
+      locked = false;
+      pointerId = null;
+      track.classList.remove('is-dragging');
+      if (wasLocked && event.type === 'pointerup') {
+        if (performance.now() - lastT > 64) velocity = 0;
+        coast(velocity);
+      } else {
+        normalize();
+      }
+    };
+
+    track.addEventListener('pointerdown', (event) => {
+      if (event.button !== 0) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('[data-carousel-prev], [data-carousel-next]')) return;
+      pointerId = event.pointerId;
+      startX = event.clientX;
+      startY = event.clientY;
+      startScroll = track.scrollLeft;
+      lastX = event.clientX;
+      lastT = performance.now();
+      velocity = 0;
+      dragging = true;
+      locked = false;
+      swiped = false;
+      stopCoast();
+      try {
+        track.setPointerCapture(event.pointerId);
+      } catch {
+        /* capture is optional */
+      }
+    });
+
+    track.addEventListener('dragstart', (event) => {
+      event.preventDefault();
+    });
+
+    track.addEventListener('pointermove', (event) => {
+      if (!dragging || event.pointerId !== pointerId) return;
+      const dx = event.clientX - startX;
+      const dy = event.clientY - startY;
+      if (!locked) {
+        if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+        if (Math.abs(dy) >= Math.abs(dx)) {
+          dragging = false;
+          pointerId = null;
+          try {
+            track.releasePointerCapture(event.pointerId);
+          } catch {
+            /* already released */
+          }
+          return;
+        }
+        locked = true;
+        swiped = true;
+        track.classList.add('is-dragging');
+      }
+      const now = performance.now();
+      const dt = Math.max(1, now - lastT);
+      const inst = -(event.clientX - lastX) / dt;
+      velocity = velocity * 0.65 + inst * 0.35;
+      lastX = event.clientX;
+      lastT = now;
+      track.scrollLeft = startScroll - dx;
+    });
+
+    track.addEventListener('pointerup', endDrag);
+    track.addEventListener('pointercancel', endDrag);
+
+    track.addEventListener(
+      'click',
+      (event) => {
+        if (!swiped) return;
+        event.preventDefault();
+        event.stopPropagation();
+        swiped = false;
+      },
+      true,
+    );
+
+    let scrollTimer: number | undefined;
+    track.addEventListener(
+      'scroll',
+      () => {
+        if (locked || busy || coasting) return;
+        window.clearTimeout(scrollTimer);
+        scrollTimer = window.setTimeout(normalize, 80);
+      },
+      { passive: true },
+    );
+
+    requestAnimationFrame(start);
+  }
+
+  document.querySelectorAll<HTMLElement>('[data-carousel]').forEach(initCarousel);
+
+  function initCoverflow(root: HTMLElement) {
+    const host = root.closest('.collections') ?? root.parentElement ?? root;
+    const cards = [...root.querySelectorAll<HTMLElement>('[data-coverflow-card]')];
+    const pager = host.querySelector<HTMLElement>('[data-coverflow-pager]');
+    const dots = [...host.querySelectorAll<HTMLButtonElement>('[data-coverflow-dot]')];
+    const prev = root.querySelector<HTMLButtonElement>('[data-coverflow-prev]');
+    const next = root.querySelector<HTMLButtonElement>('[data-coverflow-next]');
+    if (cards.length === 0) return;
+
+    const count = cards.length;
+    let active = cards.findIndex((card) => card.classList.contains('is-active'));
+    if (active < 0) active = Math.min(1, count - 1);
+
+    const wrapOffset = (offset: number) => {
+      offset = ((offset % count) + count) % count;
+      if (offset > count - 2) offset -= count;
+      return offset;
+    };
+
+    const layout = () => {
+      cards.forEach((card, index) => {
+        const offset = wrapOffset(index - active);
+        card.dataset.pos = String(offset);
+        card.classList.toggle('is-active', index === active);
+        if (index !== active) {
+          card.style.setProperty('--px', '0px');
+          card.style.setProperty('--py', '0px');
+        }
+      });
+      dots.forEach((dot, index) => dot.classList.toggle('is-active', index === active));
+      pager?.style.setProperty('--active', String(active));
+    };
+
+    const goTo = (index: number) => {
+      active = ((index % count) + count) % count;
+      layout();
+    };
+
+    prev?.addEventListener('click', () => goTo(active + 1));
+    next?.addEventListener('click', () => goTo(active - 1));
+    dots.forEach((dot) => {
+      dot.addEventListener('click', () => goTo(Number(dot.dataset.index || 0)));
+    });
+
+    const stage = root.querySelector<HTMLElement>('.coverflow__stage');
+    let startX = 0;
+    let dragging = false;
+    let swiped = false;
+    const SWIPE_THRESHOLD = 42;
+    const LOCK_THRESHOLD = 10;
+
+    const stopWindowDrag = () => {
+      window.removeEventListener('pointermove', onWindowMove);
+      window.removeEventListener('pointerup', onWindowUp);
+      window.removeEventListener('pointercancel', onWindowCancel);
+    };
+
+    const onWindowMove = (event: PointerEvent) => {
+      if (!dragging) return;
+      if (Math.abs(event.clientX - startX) > LOCK_THRESHOLD) swiped = true;
+    };
+
+    const onWindowUp = (event: PointerEvent) => {
+      stopWindowDrag();
+      if (!dragging) return;
+      const delta = event.clientX - startX;
+      dragging = false;
+      stage?.classList.remove('is-dragging');
+      if (Math.abs(delta) < SWIPE_THRESHOLD) return;
+      swiped = true;
+      goTo(active + (delta < 0 ? 1 : -1));
+    };
+
+    const onWindowCancel = () => {
+      stopWindowDrag();
+      dragging = false;
+      stage?.classList.remove('is-dragging');
+    };
+
+    root.addEventListener('pointerdown', (event) => {
+      if (event.button !== 0) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('[data-coverflow-prev], [data-coverflow-next]')) return;
+      dragging = true;
+      swiped = false;
+      startX = event.clientX;
+      stage?.classList.add('is-dragging');
+      try {
+        root.setPointerCapture(event.pointerId);
+      } catch {
+        /* some browsers reject capture on this node */
+      }
+      window.addEventListener('pointermove', onWindowMove);
+      window.addEventListener('pointerup', onWindowUp);
+      window.addEventListener('pointercancel', onWindowCancel);
+    });
+
+    root.addEventListener(
+      'click',
+      (event) => {
+        if (!swiped) return;
+        event.preventDefault();
+        event.stopPropagation();
+        swiped = false;
+      },
+      true,
+    );
+
+    cards.forEach((card, index) => {
+      const link = card.querySelector('a');
+      link?.addEventListener('click', (event) => {
+        if (swiped) {
+          event.preventDefault();
+          return;
+        }
+        if (index !== active) {
+          event.preventDefault();
+          goTo(index);
+        }
+      });
+
+      card.addEventListener('pointermove', (event) => {
+        if (index !== active || dragging || swiped) return;
+        const rect = card.getBoundingClientRect();
+        const px = ((event.clientX - rect.left) / rect.width - 0.5) * -14;
+        const py = ((event.clientY - rect.top) / rect.height - 0.5) * -10;
+        card.style.setProperty('--px', `${px}px`);
+        card.style.setProperty('--py', `${py}px`);
+      });
+
+      card.addEventListener('pointerleave', () => {
+        card.style.setProperty('--px', '0px');
+        card.style.setProperty('--py', '0px');
+      });
+    });
+
+    layout();
+    root.dataset.cfReady = 'true';
+  }
+
+  const coverflowMq = window.matchMedia('(min-width: 700px)');
+
+  const syncCoverflow = () => {
+    if (!coverflowMq.matches) return;
+    document.querySelectorAll<HTMLElement>('[data-coverflow]').forEach((root) => {
+      if (root.dataset.cfReady) return;
+      initCoverflow(root);
+    });
+  };
+
+  coverflowMq.addEventListener('change', syncCoverflow);
+  syncCoverflow();
+
+  function initCoverflowTuner() {
+    const params = new URLSearchParams(window.location.search);
+    const enabled = params.has('debug') || params.has('vitrina');
+    const panel = document.querySelector<HTMLElement>('[data-cf-tuner]');
+    const root = document.querySelector<HTMLElement>('[data-coverflow]');
+    if (!enabled || !panel || !root) return;
+
+    type Field = {
+      key: string;
+      label: string;
+      group: string;
+      min?: number;
+      max?: number;
+      step?: number;
+      unit?: string;
+      def: string;
+      options?: [string, string][];
+    };
+
+    const cardFields = (
+      n: number,
+      group: string,
+      defs: { x: string; z: string; ry: string; s: string; b: string },
+    ): Field[] => [
+      { key: `--cf-c${n}-x`, label: 'X', group, min: -50, max: 50, step: 0.1, unit: 'rem', def: defs.x },
+      { key: `--cf-c${n}-z`, label: 'Z', group, min: -160, max: 140, step: 2, unit: 'px', def: defs.z },
+      { key: `--cf-c${n}-ry`, label: 'Rotación Y', group, min: -25, max: 25, step: 0.5, unit: 'deg', def: defs.ry },
+      { key: `--cf-c${n}-s`, label: 'Escala', group, min: 0.75, max: 1.2, step: 0.01, unit: '', def: defs.s },
+      { key: `--cf-c${n}-b`, label: 'Brillo', group, min: 0.3, max: 1, step: 0.01, unit: '', def: defs.b },
+    ];
+
+    const fields: Field[] = [
+      { key: '--cf-perspective', label: 'Perspectiva', group: 'Cámara', min: 700, max: 2200, step: 20, unit: 'px', def: '1800px' },
+      { key: '--cf-origin-y', label: 'Origen Y', group: 'Cámara', min: 20, max: 80, step: 1, unit: '%', def: '40%' },
+      { key: '--cf-scene-rx', label: 'Inclinación escena', group: 'Cámara', min: 0, max: 18, step: 0.5, unit: 'deg', def: '0deg' },
+      { key: '--cf-card-w', label: 'Ancho', group: 'Medidas', min: 12, max: 26, step: 0.05, unit: 'rem', def: '22.6rem' },
+      { key: '--cf-card-h', label: 'Alto', group: 'Medidas', min: 18, max: 36, step: 0.05, unit: 'rem', def: '32.5rem' },
+      { key: '--cf-origin', label: 'Pivote', group: 'Medidas', def: '50% 50%', options: [['50% 50%', 'Centro'], ['50% 100%', 'Suelo']] },
+      ...cardFields(1, 'Card 1 · izquierda', { x: '-34.2rem', z: '-4px', ry: '-23.5deg', s: '0.96', b: '0.75' }),
+      ...cardFields(2, 'Card 2 · activa', { x: '-12.4rem', z: '48px', ry: '-11.5deg', s: '1.05', b: '0.76' }),
+      ...cardFields(3, 'Card 3', { x: '10.3rem', z: '94px', ry: '18deg', s: '0.94', b: '0.76' }),
+      ...cardFields(4, 'Card 4 · derecha', { x: '30.4rem', z: '68px', ry: '10deg', s: '0.9', b: '0.58' }),
+      { key: '--cf-bg-x', label: 'Fondo X', group: 'Fondo', min: 0, max: 100, step: 1, unit: '%', def: '37%' },
+      { key: '--cf-bg-y', label: 'Fondo Y', group: 'Fondo', min: 0, max: 100, step: 1, unit: '%', def: '80%' },
+      { key: '--cf-bg-size', label: 'Tamaño fondo', group: 'Fondo', min: 60, max: 260, step: 1, unit: '%', def: '100%' },
+      { key: '--cf-duration', label: 'Duración', group: 'Movimiento', min: 400, max: 1000, step: 20, unit: 'ms', def: '720ms' },
+      { key: '--cf-floor', label: 'Suelo', group: 'Movimiento', min: 0, max: 0.25, step: 0.01, unit: '', def: '0.12' },
+    ];
+
+    const storageKey = 'rbcompany-coverflow-3d-v2';
+    const form = panel.querySelector<HTMLFormElement>('[data-cf-form]');
+    const copyBtn = panel.querySelector<HTMLButtonElement>('[data-cf-copy]');
+    const resetBtn = panel.querySelector<HTMLButtonElement>('[data-cf-reset]');
+    const collapseBtn = panel.querySelector<HTMLButtonElement>('[data-cf-collapse]');
+    if (!form || !copyBtn || !resetBtn || !collapseBtn) return;
+
+    const defaults = Object.fromEntries(fields.map((field) => [field.key, field.def]));
+    const parseNumber = (value: string) => Number.parseFloat(value);
+
+    const load = () => {
+      try {
+        const raw = window.localStorage.getItem(storageKey);
+        return raw ? { ...defaults, ...JSON.parse(raw) } : { ...defaults };
+      } catch {
+        return { ...defaults };
+      }
+    };
+
+    let values = load();
+
+    const scene = root.closest<HTMLElement>('.collections') ?? root;
+    const desktopMq = window.matchMedia('(min-width: 1024px)');
+
+    const apply = () => {
+      if (!desktopMq.matches) {
+        Object.keys(values).forEach((key) => {
+          const target = key.startsWith('--cf-bg-') ? scene : root;
+          target.style.removeProperty(key);
+        });
+        return;
+      }
+      Object.entries(values).forEach(([key, value]) => {
+        const target = key.startsWith('--cf-bg-') ? scene : root;
+        target.style.setProperty(key, value);
+      });
+    };
+
+    desktopMq.addEventListener('change', apply);
+
+    const persist = () => {
+      window.localStorage.setItem(storageKey, JSON.stringify(values));
+    };
+
+    const format = (field: Field, raw: number) =>
+      field.unit ? `${raw}${field.unit}` : String(raw);
+
+    const groups = [...new Set(fields.map((field) => field.group))];
+    groups.forEach((group) => {
+      const wrap = document.createElement('div');
+      wrap.className = 'cf-tuner__group';
+      wrap.innerHTML = `<p>${group}</p>`;
+      fields
+        .filter((field) => field.group === group)
+        .forEach((field) => {
+          const label = document.createElement('label');
+          label.className = 'cf-tuner__field';
+          if (field.options) {
+            const select = document.createElement('select');
+            select.name = field.key;
+            field.options.forEach(([value, text]) => {
+              const option = document.createElement('option');
+              option.value = value;
+              option.textContent = text;
+              select.append(option);
+            });
+            select.value = values[field.key];
+            select.addEventListener('change', () => {
+              values[field.key] = select.value;
+              apply();
+              persist();
+            });
+            label.innerHTML = `<span class="cf-tuner__meta"><span class="cf-tuner__name">${field.label}</span></span>`;
+            label.append(select);
+          } else {
+            const current = parseNumber(values[field.key]);
+            label.innerHTML = `<span class="cf-tuner__meta"><span class="cf-tuner__name">${field.label}</span><strong class="cf-tuner__value" data-val></strong></span>`;
+            const input = document.createElement('input');
+            input.type = 'range';
+            input.className = 'cf-tuner__range';
+            input.name = field.key;
+            input.min = String(field.min);
+            input.max = String(field.max);
+            input.step = String(field.step);
+            input.value = String(current);
+            const readout = label.querySelector('[data-val]');
+            if (readout) readout.textContent = values[field.key];
+            input.addEventListener('input', () => {
+              values[field.key] = format(field, Number(input.value));
+              if (readout) readout.textContent = values[field.key];
+              apply();
+            });
+            input.addEventListener('change', persist);
+            label.append(input);
+          }
+          wrap.append(label);
+        });
+      form.append(wrap);
+    });
+
+    const syncInputs = () => {
+      fields.forEach((field) => {
+        const control = form.elements.namedItem(field.key);
+        if (control instanceof HTMLInputElement) {
+          control.value = String(parseNumber(values[field.key]));
+          const readout = control.parentElement?.querySelector('[data-val]');
+          if (readout) readout.textContent = values[field.key];
+        }
+        if (control instanceof HTMLSelectElement) control.value = values[field.key];
+      });
+    };
+
+    copyBtn.addEventListener('click', async () => {
+      const bg = fields.filter((field) => field.key.startsWith('--cf-bg-'));
+      const rest = fields.filter((field) => !field.key.startsWith('--cf-bg-'));
+      const block = (selector: string, list: Field[]) =>
+        `${selector} {\n${list.map((field) => `  ${field.key}: ${values[field.key]};`).join('\n')}\n}`;
+      const css = `${block('.collections', bg)}\n\n${block('.coverflow', rest)}`;
+      try {
+        await navigator.clipboard.writeText(css);
+        copyBtn.textContent = 'Copiado';
+        window.setTimeout(() => {
+          copyBtn.textContent = 'Copiar CSS';
+        }, 1400);
+      } catch {
+        copyBtn.textContent = 'Error';
+      }
+    });
+
+    resetBtn.addEventListener('click', () => {
+      values = { ...defaults };
+      window.localStorage.removeItem(storageKey);
+      fields.forEach((field) => {
+        const target = field.key.startsWith('--cf-bg-') ? scene : root;
+        target.style.removeProperty(field.key);
+      });
+      syncInputs();
+    });
+
+    collapseBtn.addEventListener('click', () => {
+      const minimized = panel.classList.toggle('is-min');
+      collapseBtn.textContent = minimized ? '+' : '−';
+      collapseBtn.setAttribute('aria-label', minimized ? 'Expandir' : 'Minimizar');
+    });
+
+    apply();
+    panel.hidden = false;
+  }
+
+  initCoverflowTuner();
+</script>

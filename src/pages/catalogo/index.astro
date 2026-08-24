@@ -1,0 +1,66 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import CategoryCard from '../../components/CategoryCard.astro';
+import Breadcrumbs from '../../components/Breadcrumbs.astro';
+import BenefitsBar from '../../components/BenefitsBar.astro';
+import { categories } from '../../data/categories';
+import { getProductsByCategory } from '../../data/products';
+---
+
+<BaseLayout
+  title="Catálogo"
+  description="Explora las categorías de relojes y accesorios masculinos de RBCompany."
+>
+  <section class="page-hero">
+    <div class="container anim-fade-up">
+      <Breadcrumbs items={[{ label: 'Inicio', href: '/' }, { label: 'Catálogo', href: '/catalogo' }]} />
+      <p class="eyebrow">Colecciones</p>
+      <h1 class="section-title">Catálogo</h1>
+      <hr class="divider" />
+      <p class="section-lead">
+        Explora nuestras categorías de relojes y accesorios seleccionados para complementar tu
+        estilo con distinción.
+      </p>
+    </div>
+  </section>
+
+  <section class="section section--tight">
+    <div class="container grid-cats">
+      {
+        categories.map((category) => (
+          <CategoryCard
+            category={category}
+            count={getProductsByCategory(category.slug).length}
+          />
+        ))
+      }
+    </div>
+  </section>
+
+  <BenefitsBar />
+</BaseLayout>
+
+<style>
+  .page-hero {
+    padding-block: var(--space-xl) var(--space-md);
+    background: radial-gradient(ellipse at 20% 0%, rgba(201, 162, 39, 0.12), transparent 45%);
+  }
+
+  .grid-cats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.15rem;
+  }
+
+  @media (max-width: 900px) {
+    .grid-cats {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 560px) {
+    .grid-cats {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

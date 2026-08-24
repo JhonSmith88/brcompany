@@ -1,0 +1,232 @@
+---
+import type { Product } from '../data/products';
+import { formatPrice } from '../data/site';
+import { toCartPayload } from '../lib/cart';
+
+interface Props {
+  product: Product;
+}
+
+const { product } = Astro.props;
+const href = `/catalogo/${product.categoriaSlug}/${product.slug}`;
+const cartPayload = JSON.stringify(toCartPayload(product));
+---
+
+<article class="card">
+  <a class="card__media" href={href} draggable="false">
+    <img
+      src={product.imagenPrincipal.thumb}
+      alt={product.imagenPrincipal.alt}
+      width="324"
+      height="272"
+      loading="lazy"
+      decoding="async"
+      draggable="false"
+    />
+  </a>
+  <div class="card__veil" aria-hidden="true"></div>
+
+  <div class="card__badges">
+    {
+      product.descuento > 0 && (
+        <span class="card__discount">-{product.descuento}%</span>
+      )
+    }
+    {product.stock === 0 && <span class="card__soldout">Agotado</span>}
+  </div>
+
+  {
+    product.stock > 0 && (
+      <button
+        class="card__cart"
+        type="button"
+        data-add-to-cart={cartPayload}
+        aria-label={`Añadir ${product.nombre} a la bolsa`}
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <path d="M3.2 4.2h2.1l1.15 2.2" stroke-linecap="round" stroke-linejoin="round"></path>
+          <path d="M6.1 6.4h13.2l-1.35 8.1H7.55L6.1 6.4z" stroke-linejoin="round"></path>
+          <path d="M7.7 14.5h10.05" stroke-linecap="round"></path>
+          <circle cx="9.1" cy="18.6" r="1.35"></circle>
+          <circle cx="16.7" cy="18.6" r="1.35"></circle>
+        </svg>
+      </button>
+    )
+  }
+
+  <div class="card__body">
+    <p class="card__meta">{product.marca}</p>
+    <h3 class="card__title">
+      <a href={href}>{product.nombre}</a>
+    </h3>
+    <p class="card__price">
+      <span>{formatPrice(product.precioReal)}</span>
+      {
+        product.descuento > 0 && (
+          <s>{formatPrice(product.precioOriginal)}</s>
+        )
+      }
+    </p>
+  </div>
+</article>
+
+<style>
+  .card {
+    position: relative;
+    aspect-ratio: 324 / 272;
+    overflow: hidden;
+    border: 1px solid rgb(201 162 39 / 0.16);
+    background: #0a0a0a;
+  }
+
+  .card:hover {
+    border-color: rgb(201 162 39 / 0.42);
+  }
+
+  .card__media {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    -webkit-user-drag: none;
+  }
+
+  .card__media img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    object-fit: cover;
+    object-position: center;
+    -webkit-user-drag: none;
+    pointer-events: none;
+    transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .card:hover .card__media img {
+    transform: scale(1.04);
+  }
+
+  .card__veil {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background: linear-gradient(
+      to top,
+      rgb(5 5 5 / 0.94) 0%,
+      rgb(5 5 5 / 0.78) 28%,
+      rgb(5 5 5 / 0.42) 48%,
+      rgb(5 5 5 / 0.12) 68%,
+      transparent 84%
+    );
+  }
+
+  .card__badges {
+    position: absolute;
+    top: 0.85rem;
+    left: 0.85rem;
+    z-index: 2;
+    display: flex;
+    gap: 0.35rem;
+  }
+
+  .card__discount,
+  .card__soldout {
+    font-size: 0.88rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 0.42rem 0.7rem;
+  }
+
+  .card__discount {
+    background: var(--gold-gradient);
+    color: var(--color-black);
+  }
+
+  .card__soldout {
+    border: 1px solid rgb(200 200 200 / 0.35);
+    background: rgb(0 0 0 / 0.55);
+    color: var(--color-silver);
+  }
+
+  .card__cart {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    z-index: 3;
+    display: grid;
+    place-items: center;
+    width: 3.4rem;
+    height: 3.4rem;
+    color: var(--color-gold-bright);
+    pointer-events: auto;
+    transition: color var(--transition);
+  }
+
+  .card__cart svg {
+    width: 2.2rem;
+    height: 2.2rem;
+  }
+
+  .card__cart:hover {
+    color: var(--color-white);
+  }
+
+  .card__body {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 2;
+    padding: 1.5rem 1.35rem 1.45rem;
+    pointer-events: none;
+  }
+
+  .card__body a {
+    pointer-events: auto;
+  }
+
+  .card__meta {
+    margin: 0 0 0.2rem;
+    font-size: 0.64rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--color-gold);
+  }
+
+  .card__title {
+    margin: 0 0 0.35rem;
+    font-size: clamp(1.15rem, 1.6vw, 1.4rem);
+    font-weight: 500;
+    line-height: 1.15;
+    color: var(--color-white);
+  }
+
+  .card__title a {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+  }
+
+  .card__price {
+    display: flex;
+    align-items: baseline;
+    gap: 0.55rem;
+    margin: 0;
+    color: var(--color-gold-bright);
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    letter-spacing: 0.03em;
+  }
+
+  .card__price s {
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    color: var(--color-silver);
+    text-decoration: line-through;
+  }
+</style>

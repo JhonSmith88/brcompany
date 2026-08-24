@@ -1,0 +1,271 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import Breadcrumbs from '../../../components/Breadcrumbs.astro';
+import ImageGallery from '../../../components/ImageGallery.astro';
+import ProductCard from '../../../components/ProductCard.astro';
+import WhatsAppButton from '../../../components/WhatsAppButton.astro';
+import { products, getProductBySlug, getRelatedProducts } from '../../../data/products';
+import {
+  formatPrice,
+  productWhatsAppMessage,
+  site,
+} from '../../../data/site';
+import { toCartPayload } from '../../../lib/cart';
+
+export function getStaticPaths() {
+  return products.map((product) => ({
+    params: {
+      category: product.categoriaSlug,
+      slug: product.slug,
+    },
+  }));
+}
+
+const { category, slug } = Astro.params;
+const product = getProductBySlug(category!, slug!);
+
+if (!product) {
+  return Astro.redirect('/catalogo');
+}
+
+const related = getRelatedProducts(product);
+const origin = Astro.site?.origin ?? '';
+const waMessage = productWhatsAppMessage(product, origin);
+const cartPayload = JSON.stringify(toCartPayload(product));
+const galleryImages = [
+  product.imagenPrincipal,
+  ...product.imagenes.filter((img) => img.full !== product.imagenPrincipal.full),
+];
+
+const stockLabel =
+  product.stock === 0
+    ? 'Agotado'
+    : product.stock <= 3
+      ? `Últimas ${product.stock} unidades`
+      : `${product.stock} en stock`;
+---
+
+<BaseLayout
+  title={product.nombre}
+  description={product.descripcion}
+  image={product.imagenPrincipal.full}
+  ogType="product"
+>
+  <section class="section">
+    <div class="container">
+      <Breadcrumbs
+        items={[
+          { label: 'Inicio', href: '/' },
+          { label: 'Catálogo', href: '/catalogo' },
+          { label: product.categoria, href: `/catalogo/${product.categoriaSlug}` },
+          { label: product.nombre, href: `/catalogo/${product.categoriaSlug}/${product.slug}` },
+        ]}
+      />
+
+      <div class="detail">
+        <ImageGallery images={galleryImages} productName={product.nombre} />
+
+        <div class="detail__info anim-fade-up">
+          <p class="eyebrow">{product.marca}</p>
+          <h1 class="detail__title">{product.nombre}</h1>
+          <p class="detail__code">Código {product.codigo}</p>
+
+          <div class="price detail__price">
+            <span class="price__current">{formatPrice(product.precioReal)}</span>
+            {
+              product.descuento > 0 && (
+                <>
+                  <span class="price__original">{formatPrice(product.precioOriginal)}</span>
+                  <span class="price__discount">-{product.descuento}%</span>
+                </>
+              )
+            }
+          </div>
+
+          <div class="detail__badges">
+            <span class="badge">{product.categoria}</span>
+            <span class="badge">{product.demografia}</span>
+            <span
+              class:list={[
+                'badge',
+                { 'badge--stock-low': product.stock > 0 && product.stock <= 3 },
+                { 'badge--out': product.stock === 0 },
+              ]}
+            >
+              {stockLabel}
+            </span>
+          </div>
+
+          <p class="detail__desc">{product.descripcion}</p>
+
+          <div class="detail__cta">
+            {
+              product.stock > 0 && (
+                <button
+                  class="btn btn--outline"
+                  type="button"
+                  data-add-to-cart={cartPayload}
+                >
+                  Añadir al carrito
+                </button>
+              )
+            }
+            {
+              product.stock > 0 ? (
+                <WhatsAppButton message={waMessage} variant="gold" label="Pedir por WhatsApp" />
+              ) : (
+                <WhatsAppButton
+                  message={`Hola, me interesa el producto agotado ${product.nombre} (código ${product.codigo}). ¿Cuándo vuelve a estar disponible?`}
+                  variant="outline"
+                  label="Avisarme por WhatsApp"
+                />
+              )
+            }
+            <p class="detail__note">
+              Añade piezas a la bolsa y pídelas juntas por WhatsApp, o escribe directo por este
+              producto. El mensaje incluye el código y el enlace para agilizar la atención en {site.name}.
+            </p>
+          </div>
+
+          <dl class="detail__specs">
+            <div>
+              <dt>Marca</dt>
+              <dd>{product.marca}</dd>
+            </div>
+            <div>
+              <dt>Categoría</dt>
+              <dd>{product.categoria}</dd>
+            </div>
+            <div>
+              <dt>Demografía</dt>
+              <dd>{product.demografia}</dd>
+            </div>
+            <div>
+              <dt>Precio original</dt>
+              <dd>{formatPrice(product.precioOriginal)}</dd>
+            </div>
+          </dl>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  {
+    related.length > 0 && (
+      <section class="section section--related">
+        <div class="container">
+          <p class="eyebrow">También te puede interesar</p>
+          <h2 class="section-title">Relacionados</h2>
+          <hr class="divider" />
+          <div class="grid-related">
+            {related.map((item) => (
+              <ProductCard product={item} />
+            ))}
+          </div>
+        </div>
+      </section>
+    )
+  }
+</BaseLayout>
+
+<style>
+  .detail {
+    display: grid;
+    grid-template-columns: 1.05fr 1fr;
+    gap: clamp(1.5rem, 4vw, 3rem);
+    align-items: start;
+  }
+
+  .detail__title {
+    font-size: clamp(2.2rem, 4vw, 3.2rem);
+    margin-bottom: 0.35rem;
+  }
+
+  .detail__code {
+    font-size: 0.78rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--color-silver-dim);
+    margin-bottom: 1.25rem;
+  }
+
+  .detail__price {
+    margin-bottom: 1.1rem;
+  }
+
+  .detail__badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .detail__desc {
+    color: var(--color-silver);
+    margin-bottom: 1.5rem;
+    max-width: 36rem;
+  }
+
+  .detail__cta {
+    display: grid;
+    gap: 0.75rem;
+    margin-bottom: 1.75rem;
+  }
+
+  .detail__cta :global(.btn) {
+    width: 100%;
+  }
+
+  .detail__note {
+    font-size: 0.85rem;
+    color: var(--color-silver-dim);
+  }
+
+  .detail__specs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid rgba(201, 162, 39, 0.16);
+  }
+
+  .detail__specs dt {
+    font-size: 0.68rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-gold);
+    margin-bottom: 0.2rem;
+  }
+
+  .detail__specs dd {
+    color: var(--color-silver);
+  }
+
+  .section--related {
+    background: linear-gradient(180deg, transparent, rgba(20, 20, 20, 0.5), transparent);
+  }
+
+  .grid-related {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+    margin-top: var(--space-lg);
+  }
+
+  @media (max-width: 900px) {
+    .detail {
+      grid-template-columns: 1fr;
+    }
+
+    .grid-related {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  @media (max-width: 560px) {
+    .detail__specs,
+    .grid-related {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

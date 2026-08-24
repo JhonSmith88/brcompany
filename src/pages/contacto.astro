@@ -1,0 +1,116 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import WhatsAppButton from '../components/WhatsAppButton.astro';
+import { site, buildWhatsAppUrl, generalWhatsAppMessage } from '../data/site';
+
+const waUrl = buildWhatsAppUrl(generalWhatsAppMessage('Quiero hacer una consulta.'));
+---
+
+<BaseLayout
+  title="Contacto"
+  description={`Contacta a ${site.name} por WhatsApp para pedidos, disponibilidad y asesoría.`}
+>
+  <section class="page-hero">
+    <div class="container anim-fade-up">
+      <p class="eyebrow">Atención</p>
+      <h1 class="section-title">Contacto</h1>
+      <hr class="divider" />
+      <p class="section-lead">
+        Todos los pedidos se gestionan por WhatsApp. Escríbenos y te respondemos con disponibilidad
+        y opciones de entrega.
+      </p>
+    </div>
+  </section>
+
+  <section class="section section--tight">
+    <div class="container contact">
+      <article class="contact__panel anim-fade-up">
+        <h2>WhatsApp</h2>
+        <p class="contact__number">{site.whatsapp.display}</p>
+        <p>
+          Ideal para consultas de stock, medidas, comparación entre modelos y seguimiento de tu
+          pedido.
+        </p>
+        <WhatsAppButton message={generalWhatsAppMessage('Quiero hacer una consulta.')} variant="gold" />
+      </article>
+
+      <article class="contact__panel anim-fade-up-delay">
+        <h2>Correo y ubicación</h2>
+        <ul class="contact__list">
+          <li>
+            <span>Email</span>
+            <a href={`mailto:${site.email}`}>{site.email}</a>
+          </li>
+          <li>
+            <span>Ubicación</span>
+            <p>{site.location}</p>
+          </li>
+          <li>
+            <span>Horario orientativo</span>
+            <p>Lunes a sábado · 10:00 – 19:00</p>
+          </li>
+        </ul>
+        <a class="btn btn--outline" href={waUrl} target="_blank" rel="noopener noreferrer">
+          Preferimos WhatsApp
+        </a>
+      </article>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .page-hero {
+    padding-block: var(--space-xl) var(--space-md);
+    background: radial-gradient(ellipse at 70% 0%, rgba(201, 162, 39, 0.12), transparent 45%);
+  }
+
+  .contact {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+  }
+
+  .contact__panel {
+    padding: clamp(1.5rem, 4vw, 2.25rem);
+    border: 1px solid rgba(201, 162, 39, 0.18);
+    background: var(--color-black-soft);
+    display: grid;
+    gap: 1rem;
+    align-content: start;
+  }
+
+  .contact__panel h2 {
+    font-size: 1.8rem;
+  }
+
+  .contact__number {
+    font-family: var(--font-display);
+    font-size: 2rem;
+    color: var(--color-gold-bright);
+    letter-spacing: 0.04em;
+  }
+
+  .contact__list {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .contact__list span {
+    display: block;
+    font-size: 0.68rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--color-gold);
+    margin-bottom: 0.25rem;
+  }
+
+  .contact__list a:hover {
+    color: var(--color-gold-bright);
+  }
+
+  @media (max-width: 760px) {
+    .contact {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

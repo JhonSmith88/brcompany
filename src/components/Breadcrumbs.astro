@@ -1,0 +1,59 @@
+---
+interface Props {
+  items: { label: string; href: string }[];
+}
+
+const { items } = Astro.props;
+---
+
+<nav class="crumbs" aria-label="Miga de pan">
+  <ol>
+    {
+      items.map((item, index) => (
+        <li>
+          {index < items.length - 1 ? (
+            <a href={item.href}>{item.label}</a>
+          ) : (
+            <span aria-current="page">{item.label}</span>
+          )}
+        </li>
+      ))
+    }
+  </ol>
+</nav>
+
+<style>
+  .crumbs {
+    margin-bottom: var(--space-md);
+  }
+
+  .crumbs ol {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    align-items: center;
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-silver-dim);
+  }
+
+  .crumbs li:not(:last-child)::after {
+    content: '/';
+    margin-left: 0.45rem;
+    color: rgba(201, 162, 39, 0.45);
+  }
+
+  .crumbs a {
+    color: var(--color-silver);
+    transition: color var(--transition);
+  }
+
+  .crumbs a:hover {
+    color: var(--color-gold-bright);
+  }
+
+  .crumbs span {
+    color: var(--color-gold);
+  }
+</style>
