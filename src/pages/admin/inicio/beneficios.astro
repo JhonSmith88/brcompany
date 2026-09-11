@@ -1,0 +1,131 @@
+---
+import AdminHomeLayout from '../../../layouts/AdminHomeLayout.astro';
+---
+
+<AdminHomeLayout title="Beneficios" lead="Los mensajes bajo la cinta de marcas. Puedes cambiar texto, icono, orden o añadir otro. Los tres primeros también se ven en el catálogo.">
+  <div class="admin-actions">
+    <button type="button" class="btn btn--outline" data-add-benefit>Añadir beneficio</button>
+  </div>
+  <div class="admin-benefits" data-benefits-list></div>
+</AdminHomeLayout>
+
+<script>
+  import { requireAdminSession } from '../../../lib/admin';
+  import { showAdminAlert } from '../../../lib/admin-home';
+  import { benefitIconOptions, defaultHomeBenefits, sanitizeBenefitIcon } from '../../../lib/home';
+  import { escapeHtml } from '../../../lib/media/ui';
+
+  const gate = await requireAdminSession();
+  if (!gate) throw new Error('redirect');
+  const { supabase } = gate;
+  const alertEl = document.querySelector('[data-admin-alert]');
+  const benefitsList = document.querySelector('[data-benefits-list]');
+  const show = (message: string, error = false) => showAdminAlert(alertEl, message, error);
+
+  function iconSelect(selected: string) {
+    return benefitIconOptions
+      .map(
+        (option) =>
+          `<option value="${option.value}" ${option.value === selected ? 'selected' : ''}>${option.label}</option>`,
+      )
+      .join('');
+  }
+
+  function benefitCard(row: {
+    id: string;
+    title: string;
+    text: string;
+    icon: string;
+    sort_order: number;
+    active: boolean;
+  }) {
+    return `
+      <article data-benefit-id="${row.id}">
+        <div class="row-2">
+          <label>Título <input type="text" value="${escapeHtml(row.title)}" data-benefit-title></label>
+          <label>Icono <select data-benefit-icon>${iconSelect(sanitizeBenefitIcon(row.icon))}</select></label>
+        </div>
+        <label>Texto <input type="text" value="${escapeHtml(row.text)}" data-benefit-text></label>
+        <div class="admin-benefits__meta">
+          <input type="number" value="${row.sort_order}" data-benefit-order>
+          <label class="admin-check"><input type="checkbox" data-benefit-active ${row.active ? 'checked' : ''}> Visible</label>
+          <button type="button" data-benefit-save>Guardar</button>
+          <button type="button" data-benefit-delete>Quitar</button>
+        </div>
+      </article>
+    `;
+  }
+
+  async function renderBenefits() {
+    const { data, error } = await supabase.from('home_benefits').select('*').order('sort_order');
+    if (error) {
+      show('Falta la tabla home_benefits. Corre supabase/dashboard.sql en el SQL Editor.', true);
+      return;
+    }
+    if (!data?.length) {
+      const seed = defaultHomeBenefits.map((item, index) => ({
+        ...item,
+        sort_order: index,
+        active: true,
+      }));
+      const { data: inserted, error: insertError } = await supabase.from('home_benefits').insert(seed).select();
+      if (insertError) {
+        show(insertError.message, true);
+        return;
+      }
+      if (benefitsList) benefitsList.innerHTML = (inserted ?? []).map((row) => benefitCard(row as never)).join('');
+      return;
+    }
+    if (benefitsList) benefitsList.innerHTML = data.map((row) => benefitCard(row as never)).join('');
+  }
+
+  document.querySelector('[data-add-benefit]')?.addEventListener('click', async () => {
+    const { count } = await supabase.from('home_benefits').select('*', { count: 'exact', head: true });
+    const { error } = await supabase.from('home_benefits').insert({
+      title: 'Nuevo beneficio',
+      text: '',
+      icon: 'shield',
+      sort_order: count ?? 0,
+      active: true,
+    });
+    if (error) show(error.message, true);
+    else {
+      await renderBenefits();
+      show('Beneficio añadido.');
+    }
+  });
+
+  benefitsList?.addEventListener('click', async (event) => {
+    const target = event.target as HTMLElement;
+    const card = target.closest<HTMLElement>('[data-benefit-id]');
+    if (!card) return;
+    const id = card.dataset.benefitId!;
+
+    if (target.closest('[data-benefit-save]')) {
+      const title = card.querySelector<HTMLInputElement>('[data-benefit-title]')?.value.trim() ?? '';
+      const text = card.querySelector<HTMLInputElement>('[data-benefit-text]')?.value.trim() ?? '';
+      const icon = sanitizeBenefitIcon(card.querySelector<HTMLSelectElement>('[data-benefit-icon]')?.value ?? 'shield');
+      const sort_order = Number(card.querySelector<HTMLInputElement>('[data-benefit-order]')?.value ?? 0);
+      const active = card.querySelector<HTMLInputElement>('[data-benefit-active]')?.checked ?? true;
+      if (!title) {
+        show('El título del beneficio no puede estar vacío.', true);
+        return;
+      }
+      const { error } = await supabase
+        .from('home_benefits')
+        .update({ title, text, icon, sort_order, active })
+        .eq('id', id);
+      show(error ? error.message : 'Beneficio guardado.', Boolean(error));
+      if (!error) await renderBenefits();
+      return;
+    }
+
+    if (target.closest('[data-benefit-delete]')) {
+      const { error } = await supabase.from('home_benefits').delete().eq('id', id);
+      if (error) show(error.message, true);
+      else await renderBenefits();
+    }
+  });
+
+  await renderBenefits();
+</script>

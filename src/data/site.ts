@@ -24,8 +24,8 @@ export function formatPrice(value: number): string {
   }).format(value);
 }
 
-export function buildWhatsAppUrl(message: string): string {
-  return `https://wa.me/${site.whatsapp.number}?text=${encodeURIComponent(message)}`;
+export function buildWhatsAppUrl(message: string, number = site.whatsapp.number): string {
+  return `https://wa.me/${number}?text=${encodeURIComponent(message)}`;
 }
 
 export function productWhatsAppMessage(product: {

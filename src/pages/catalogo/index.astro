@@ -3,24 +3,25 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import CategoryCard from '../../components/CategoryCard.astro';
 import Breadcrumbs from '../../components/Breadcrumbs.astro';
 import BenefitsBar from '../../components/BenefitsBar.astro';
-import { categories } from '../../data/categories';
-import { getProductsByCategory } from '../../data/products';
+import { getAllProducts, getCategories } from '../../lib/catalog';
+import { getCatalogPageCopy } from '../../lib/catalog-page';
+
+const categories = await getCategories();
+const products = await getAllProducts();
+const catalog = await getCatalogPageCopy();
 ---
 
 <BaseLayout
-  title="Catálogo"
-  description="Explora las categorías de relojes y accesorios masculinos de RBCompany."
+  title={catalog.title}
+  description={catalog.description}
 >
   <section class="page-hero">
     <div class="container anim-fade-up">
-      <Breadcrumbs items={[{ label: 'Inicio', href: '/' }, { label: 'Catálogo', href: '/catalogo' }]} />
-      <p class="eyebrow">Colecciones</p>
-      <h1 class="section-title">Catálogo</h1>
+      <Breadcrumbs items={[{ label: 'Inicio', href: '/' }, { label: catalog.title, href: '/catalogo' }]} />
+      <p class="eyebrow">{catalog.eyebrow}</p>
+      <h1 class="section-title">{catalog.title}</h1>
       <hr class="divider" />
-      <p class="section-lead">
-        Explora nuestras categorías de relojes y accesorios seleccionados para complementar tu
-        estilo con distinción.
-      </p>
+      <p class="section-lead">{catalog.lead}</p>
     </div>
   </section>
 
@@ -30,7 +31,7 @@ import { getProductsByCategory } from '../../data/products';
         categories.map((category) => (
           <CategoryCard
             category={category}
-            count={getProductsByCategory(category.slug).length}
+            count={products.filter((product) => product.categoriaSlug === category.slug).length}
           />
         ))
       }

@@ -1,0 +1,297 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+---
+
+<AdminLayout title="Producto">
+  <p class="admin-alert" data-admin-alert hidden></p>
+  <p class="muted" data-mode></p>
+  <form class="admin-form" data-product-form>
+    <div class="row-2">
+      <label>Código <input name="codigo" required></label>
+      <label>Slug <input name="slug" required></label>
+    </div>
+    <label>Nombre <input name="nombre" required></label>
+    <label>Descripción <textarea name="descripcion" required></textarea></label>
+    <div class="row-2">
+      <label>Marca <input name="marca" required></label>
+      <label>Categoría <select name="categoria_slug" required></select></label>
+    </div>
+    <div class="row-2">
+      <label>Precio original <input name="precio_original" type="number" min="0" required></label>
+      <label>Descuento % <input name="descuento" type="number" min="0" max="90" value="0"></label>
+    </div>
+    <div class="row-2">
+      <label>Precio real <input name="precio_real" type="number" min="0" required></label>
+      <label>Stock <input name="stock" type="number" min="0" value="0" required></label>
+    </div>
+    <label>Demografía <input name="demografia" value="Hombres"></label>
+    <label class="admin-check"><input type="checkbox" name="destacado"> Destacado en inicio</label>
+    <section class="admin-specs" data-specs>
+      <h2 class="section-title" style="font-size: 1.35rem; margin: 0.4rem 0 0">Características</h2>
+      <p class="muted">Aparecen en la ficha del producto y, si es la pieza destacada, también en el inicio. Máximo 6.</p>
+      <div data-specs-list></div>
+      <div class="admin-actions" style="margin:0">
+        <button type="button" class="btn btn--outline" data-add-spec>Añadir característica</button>
+      </div>
+    </section>
+    <div class="admin-actions">
+      <button class="btn btn--gold" type="submit">Guardar producto</button>
+      <button class="btn btn--outline" type="button" data-delete hidden>Eliminar</button>
+      <a class="btn btn--outline" href="/admin/productos">Volver</a>
+    </div>
+  </form>
+
+  <section data-gallery-wrap hidden>
+    <h2 class="section-title" style="font-size: 1.5rem; margin-top: 2rem">Galería</h2>
+    <p class="muted">Puedes reutilizar fotos de la biblioteca o subir una nueva a la carpeta del producto.</p>
+    <div class="admin-actions">
+      <button type="button" class="btn btn--outline" data-add-image>Añadir foto</button>
+    </div>
+    <div class="admin-gallery" data-gallery></div>
+  </section>
+</AdminLayout>
+
+<script>
+  import { requireAdminSession, slugify } from '../../../lib/admin';
+  import { MAX_PRODUCT_SPECS, sanitizeProductSpecs, specIconOptions, type ProductSpec } from '../../../lib/product-specs';
+  import { openMediaModal } from '../../../lib/media/media-picker';
+  import { escapeHtml } from '../../../lib/media/ui';
+
+  const gate = await requireAdminSession();
+  if (!gate) throw new Error('redirect');
+  const { supabase } = gate;
+  const params = new URLSearchParams(window.location.search);
+  const existingCodigo = params.get('codigo');
+  const form = document.querySelector<HTMLFormElement>('[data-product-form]')!;
+  const alertEl = document.querySelector('[data-admin-alert]');
+  const mode = document.querySelector('[data-mode]');
+  const deleteBtn = document.querySelector<HTMLButtonElement>('[data-delete]');
+  const galleryWrap = document.querySelector('[data-gallery-wrap]');
+  const gallery = document.querySelector('[data-gallery]');
+  const select = form.querySelector<HTMLSelectElement>('[name="categoria_slug"]')!;
+
+  const show = (message: string, error = false) => {
+    if (!alertEl) return;
+    alertEl.hidden = false;
+    alertEl.textContent = message;
+    alertEl.classList.toggle('is-error', error);
+  };
+
+  const { data: categories } = await supabase.from('categories').select('slug, nombre').order('orden');
+  select.innerHTML = (categories ?? [])
+    .map((row) => `<option value="${escapeHtml(row.slug)}">${escapeHtml(row.nombre)}</option>`)
+    .join('');
+
+  const codigoInput = form.querySelector<HTMLInputElement>('[name="codigo"]')!;
+  const slugInput = form.querySelector<HTMLInputElement>('[name="slug"]')!;
+  const nombreInput = form.querySelector<HTMLInputElement>('[name="nombre"]')!;
+  const descInput = form.querySelector<HTMLTextAreaElement>('[name="descripcion"]')!;
+  const marcaInput = form.querySelector<HTMLInputElement>('[name="marca"]')!;
+  const original = form.querySelector<HTMLInputElement>('[name="precio_original"]')!;
+  const discount = form.querySelector<HTMLInputElement>('[name="descuento"]')!;
+  const real = form.querySelector<HTMLInputElement>('[name="precio_real"]')!;
+  const stockInput = form.querySelector<HTMLInputElement>('[name="stock"]')!;
+  const demoInput = form.querySelector<HTMLInputElement>('[name="demografia"]')!;
+  const featuredInput = form.querySelector<HTMLInputElement>('[name="destacado"]')!;
+  const specsList = form.querySelector<HTMLElement>('[data-specs-list]');
+  const addSpecBtn = form.querySelector<HTMLButtonElement>('[data-add-spec]');
+
+  if (mode) mode.textContent = existingCodigo ? `Editando ${existingCodigo}` : 'Alta de producto';
+  if (existingCodigo && deleteBtn && galleryWrap) {
+    deleteBtn.hidden = false;
+    galleryWrap.hidden = false;
+    codigoInput.readOnly = true;
+  }
+
+  const syncPrice = () => {
+    const base = Number(original.value || 0);
+    const off = Number(discount.value || 0);
+    real.value = String(Math.round(base * (1 - off / 100)));
+  };
+  original.addEventListener('input', syncPrice);
+  discount.addEventListener('input', syncPrice);
+  nombreInput.addEventListener('input', () => {
+    if (!existingCodigo) slugInput.value = slugify(nombreInput.value);
+  });
+
+  async function loadProduct() {
+    if (!existingCodigo) {
+      renderSpecs([]);
+      return;
+    }
+    const { data, error } = await supabase.from('products').select('*').eq('codigo', existingCodigo).maybeSingle();
+    if (error || !data) {
+      show('No se encontró el producto.', true);
+      return;
+    }
+    codigoInput.value = data.codigo;
+    slugInput.value = data.slug;
+    nombreInput.value = data.nombre;
+    descInput.value = data.descripcion;
+    marcaInput.value = data.marca;
+    select.value = data.categoria_slug;
+    original.value = String(data.precio_original);
+    discount.value = String(data.descuento);
+    real.value = String(data.precio_real);
+    stockInput.value = String(data.stock);
+    demoInput.value = data.demografia;
+    featuredInput.checked = Boolean(data.destacado);
+    renderSpecs(sanitizeProductSpecs(data.caracteristicas));
+    await renderGallery();
+  }
+
+  function specIconSelect(selected: string) {
+    return specIconOptions
+      .map((option) => `<option value="${option.value}" ${option.value === selected ? 'selected' : ''}>${option.label}</option>`)
+      .join('');
+  }
+
+  function specCard(spec: ProductSpec) {
+    return `
+      <article data-spec>
+        <div class="row-2">
+          <label>Título <input type="text" value="${escapeHtml(spec.title)}" data-spec-title></label>
+          <label>Icono <select data-spec-icon>${specIconSelect(spec.icon)}</select></label>
+        </div>
+        <label>Texto <input type="text" value="${escapeHtml(spec.text)}" data-spec-text></label>
+        <button type="button" data-remove-spec>Quitar</button>
+      </article>
+    `;
+  }
+
+  function currentSpecs(): ProductSpec[] {
+    if (!specsList) return [];
+    return sanitizeProductSpecs(
+      [...specsList.querySelectorAll<HTMLElement>('[data-spec]')].map((card) => ({
+        title: card.querySelector<HTMLInputElement>('[data-spec-title]')?.value ?? '',
+        text: card.querySelector<HTMLInputElement>('[data-spec-text]')?.value ?? '',
+        icon: card.querySelector<HTMLSelectElement>('[data-spec-icon]')?.value ?? 'shield',
+      })),
+    );
+  }
+
+  function renderSpecs(specs: ProductSpec[]) {
+    if (!specsList) return;
+    specsList.innerHTML = specs.map((spec) => specCard(spec)).join('');
+    if (addSpecBtn) addSpecBtn.hidden = specs.length >= MAX_PRODUCT_SPECS;
+  }
+
+  addSpecBtn?.addEventListener('click', () => {
+    const specs = currentSpecs();
+    if (specs.length >= MAX_PRODUCT_SPECS) return;
+    renderSpecs([...specs, { title: '', text: '', icon: 'shield' }]);
+  });
+
+  specsList?.addEventListener('click', (event) => {
+    const button = (event.target as HTMLElement).closest('[data-remove-spec]');
+    if (!button) return;
+    button.closest('[data-spec]')?.remove();
+    if (addSpecBtn) addSpecBtn.hidden = currentSpecs().length >= MAX_PRODUCT_SPECS;
+  });
+
+  async function renderGallery() {
+    if (!existingCodigo || !gallery) return;
+    const { data } = await supabase
+      .from('product_images')
+      .select('*')
+      .eq('product_codigo', existingCodigo)
+      .order('sort_order');
+    gallery.innerHTML = (data ?? [])
+      .map(
+        (row) => `
+        <article data-image-id="${row.id}">
+          <img src="${escapeHtml(row.thumb)}" alt="">
+          <label class="admin-check"><input type="radio" name="principal" ${row.is_principal ? 'checked' : ''} data-make-principal> Principal</label>
+          <button type="button" data-remove-image>Quitar</button>
+        </article>
+      `,
+      )
+      .join('');
+  }
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const payload = new FormData(form);
+    const row = {
+      codigo: String(payload.get('codigo')).trim(),
+      slug: slugify(String(payload.get('slug'))),
+      nombre: String(payload.get('nombre')).trim(),
+      descripcion: String(payload.get('descripcion')).trim(),
+      marca: String(payload.get('marca')).trim(),
+      categoria_slug: String(payload.get('categoria_slug')),
+      precio_original: Number(payload.get('precio_original')),
+      descuento: Number(payload.get('descuento') || 0),
+      precio_real: Number(payload.get('precio_real')),
+      stock: Number(payload.get('stock') || 0),
+      demografia: String(payload.get('demografia') || 'Hombres'),
+      destacado: featuredInput.checked,
+      caracteristicas: currentSpecs(),
+    };
+
+    const query = existingCodigo
+      ? supabase.from('products').update(row).eq('codigo', existingCodigo)
+      : supabase.from('products').insert(row);
+    const { error } = await query;
+    if (error) {
+      show(error.message, true);
+      return;
+    }
+    window.location.href = `/admin/productos/editar?codigo=${encodeURIComponent(row.codigo)}`;
+  });
+
+  deleteBtn?.addEventListener('click', async () => {
+    if (!existingCodigo || !confirm('¿Eliminar este producto?')) return;
+    const { error } = await supabase.from('products').delete().eq('codigo', existingCodigo);
+    if (error) show(error.message, true);
+    else window.location.href = '/admin/productos';
+  });
+
+  document.querySelector('[data-add-image]')?.addEventListener('click', () => {
+    if (!existingCodigo) return;
+    openMediaModal({
+      folder: `products/${existingCodigo}`,
+      title: 'Añadir foto',
+      onSelect: async (url) => {
+        const { count } = await supabase
+          .from('product_images')
+          .select('*', { count: 'exact', head: true })
+          .eq('product_codigo', existingCodigo);
+        const order = count ?? 0;
+        const { error } = await supabase.from('product_images').insert({
+          product_codigo: existingCodigo,
+          thumb: url,
+          full_url: url,
+          alt: nombreInput.value || existingCodigo,
+          sort_order: order,
+          is_principal: order === 0,
+        });
+        if (error) show(error.message, true);
+        else {
+          await renderGallery();
+          show('Foto añadida.');
+        }
+      },
+    });
+  });
+
+  gallery?.addEventListener('click', async (event) => {
+    const target = event.target as HTMLElement;
+    const card = target.closest<HTMLElement>('[data-image-id]');
+    if (!card || !existingCodigo) return;
+    const id = card.dataset.imageId!;
+
+    if (target.closest('[data-remove-image]')) {
+      await supabase.from('product_images').delete().eq('id', id);
+      await renderGallery();
+      return;
+    }
+
+    if (target.closest('[data-make-principal]')) {
+      await supabase.from('product_images').update({ is_principal: false }).eq('product_codigo', existingCodigo);
+      await supabase.from('product_images').update({ is_principal: true }).eq('id', id);
+      await renderGallery();
+    }
+  });
+
+  await loadProduct();
+</script>

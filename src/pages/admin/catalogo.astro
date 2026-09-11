@@ -1,0 +1,138 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+---
+
+<AdminLayout title="Catálogo">
+  <p class="muted">Textos de la portada, las categorías y los relacionados. Las piezas y colecciones se editan en Productos y Categorías. Los beneficios del pie son los de Inicio.</p>
+  <p class="admin-alert" data-admin-alert hidden></p>
+  <form class="admin-form" data-catalog-form>
+    <h2 class="section-title" style="font-size: 1.35rem; margin: 0">Portada</h2>
+    <div class="row-2">
+      <label>Antetítulo <input name="eyebrow" required></label>
+      <label>Título <input name="title" required></label>
+    </div>
+    <label>Texto <textarea name="lead" required></textarea></label>
+    <label>Descripción para buscadores <input name="description" required></label>
+
+    <h2 class="section-title" style="font-size: 1.35rem; margin: 0.8rem 0 0">Categoría</h2>
+    <label>Antetítulo de categoría <input name="category_eyebrow" required></label>
+    <label>Vacío (sin productos) <input name="empty_category" required></label>
+    <label>Vacío (filtros) <input name="empty_filter" required></label>
+
+    <h2 class="section-title" style="font-size: 1.35rem; margin: 0.8rem 0 0">Ficha de producto</h2>
+    <div class="row-2">
+      <label>Antetítulo de relacionados <input name="related_eyebrow" required></label>
+      <label>Título de relacionados <input name="related_title" required></label>
+    </div>
+
+    <div class="admin-actions">
+      <button class="btn btn--gold" type="submit">Guardar catálogo</button>
+    </div>
+  </form>
+</AdminLayout>
+
+<script>
+  import { requireAdminSession } from '../../lib/admin';
+  import { defaultCatalogPageCopy } from '../../lib/catalog-page';
+
+  const gate = await requireAdminSession();
+  if (!gate) throw new Error('redirect');
+  const { supabase } = gate;
+  const form = document.querySelector<HTMLFormElement>('[data-catalog-form]');
+  const alertEl = document.querySelector('[data-admin-alert]');
+
+  const show = (message: string, error = false) => {
+    if (!alertEl) return;
+    alertEl.hidden = false;
+    alertEl.textContent = message;
+    alertEl.classList.toggle('is-error', error);
+  };
+
+  function fill(row: {
+    eyebrow: string;
+    title: string;
+    lead: string;
+    description: string;
+    category_eyebrow: string;
+    empty_category: string;
+    empty_filter: string;
+    related_eyebrow: string;
+    related_title: string;
+  }) {
+    if (!form) return;
+    const field = (name: string) => form.elements.namedItem(name) as HTMLInputElement | HTMLTextAreaElement;
+    field('eyebrow').value = row.eyebrow;
+    field('title').value = row.title;
+    field('lead').value = row.lead;
+    field('description').value = row.description;
+    field('category_eyebrow').value = row.category_eyebrow;
+    field('empty_category').value = row.empty_category;
+    field('empty_filter').value = row.empty_filter;
+    field('related_eyebrow').value = row.related_eyebrow;
+    field('related_title').value = row.related_title;
+  }
+
+  async function load() {
+    const { data, error } = await supabase.from('catalog_page').select('*').eq('id', 'catalog').maybeSingle();
+    if (error) {
+      show('Falta la tabla catalog_page. Corre supabase/catalog-page.sql en el SQL Editor.', true);
+      fill({
+        eyebrow: defaultCatalogPageCopy.eyebrow,
+        title: defaultCatalogPageCopy.title,
+        lead: defaultCatalogPageCopy.lead,
+        description: defaultCatalogPageCopy.description,
+        category_eyebrow: defaultCatalogPageCopy.categoryEyebrow,
+        empty_category: defaultCatalogPageCopy.emptyCategory,
+        empty_filter: defaultCatalogPageCopy.emptyFilter,
+        related_eyebrow: defaultCatalogPageCopy.relatedEyebrow,
+        related_title: defaultCatalogPageCopy.relatedTitle,
+      });
+      return;
+    }
+    if (data) {
+      fill(data);
+      return;
+    }
+    const seed = {
+      id: 'catalog',
+      eyebrow: defaultCatalogPageCopy.eyebrow,
+      title: defaultCatalogPageCopy.title,
+      lead: defaultCatalogPageCopy.lead,
+      description: defaultCatalogPageCopy.description,
+      category_eyebrow: defaultCatalogPageCopy.categoryEyebrow,
+      empty_category: defaultCatalogPageCopy.emptyCategory,
+      empty_filter: defaultCatalogPageCopy.emptyFilter,
+      related_eyebrow: defaultCatalogPageCopy.relatedEyebrow,
+      related_title: defaultCatalogPageCopy.relatedTitle,
+    };
+    const { error: insertError } = await supabase.from('catalog_page').insert(seed);
+    if (insertError) show(insertError.message, true);
+    fill(seed);
+  }
+
+  form?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const payload = new FormData(form);
+    const row = {
+      id: 'catalog',
+      eyebrow: String(payload.get('eyebrow') ?? '').trim(),
+      title: String(payload.get('title') ?? '').trim(),
+      lead: String(payload.get('lead') ?? '').trim(),
+      description: String(payload.get('description') ?? '').trim(),
+      category_eyebrow: String(payload.get('category_eyebrow') ?? '').trim(),
+      empty_category: String(payload.get('empty_category') ?? '').trim(),
+      empty_filter: String(payload.get('empty_filter') ?? '').trim(),
+      related_eyebrow: String(payload.get('related_eyebrow') ?? '').trim(),
+      related_title: String(payload.get('related_title') ?? '').trim(),
+      updated_at: new Date().toISOString(),
+    };
+    const { error } = await supabase.from('catalog_page').upsert(row);
+    if (error) show(error.message, true);
+    else {
+      fill(row);
+      show('Catálogo guardado.');
+    }
+  });
+
+  await load();
+</script>

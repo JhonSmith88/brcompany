@@ -1,0 +1,137 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+---
+
+<AdminLayout title="Contacto">
+  <p class="muted">Textos de la página. El número de WhatsApp y el correo se editan en Ajustes.</p>
+  <p class="admin-alert" data-admin-alert hidden></p>
+  <form class="admin-form" data-contact-form>
+    <h2 class="section-title" style="font-size: 1.35rem; margin: 0">Portada</h2>
+    <div class="row-2">
+      <label>Antetítulo <input name="eyebrow" required></label>
+      <label>Título <input name="title" required></label>
+    </div>
+    <label>Texto <textarea name="lead" required></textarea></label>
+    <label>Descripción para buscadores <input name="description" required></label>
+
+    <h2 class="section-title" style="font-size: 1.35rem; margin: 0.8rem 0 0">Tarjeta WhatsApp</h2>
+    <label>Título <input name="whatsapp_title" required></label>
+    <label>Texto <textarea name="whatsapp_text" required></textarea></label>
+    <label>Botón <input name="whatsapp_cta" required></label>
+    <label>Mensaje de WhatsApp <textarea name="whatsapp_context" required></textarea></label>
+
+    <h2 class="section-title" style="font-size: 1.35rem; margin: 0.8rem 0 0">Tarjeta de datos</h2>
+    <label>Título <input name="info_title" required></label>
+    <div class="row-2">
+      <label>Etiqueta del correo <input name="email_label" required></label>
+      <label>Etiqueta de ubicación <input name="location_label" required></label>
+    </div>
+    <label>Ubicación <input name="location" required></label>
+    <div class="row-2">
+      <label>Etiqueta de horario <input name="hours_label" required></label>
+      <label>Horario <input name="hours" required></label>
+    </div>
+    <label>Botón secundario <input name="info_cta" required></label>
+
+    <div class="admin-actions">
+      <button class="btn btn--gold" type="submit">Guardar contacto</button>
+    </div>
+  </form>
+</AdminLayout>
+
+<script>
+  import { requireAdminSession } from '../../lib/admin';
+  import { defaultContactPageCopy } from '../../lib/contact-page';
+
+  const gate = await requireAdminSession();
+  if (!gate) throw new Error('redirect');
+  const { supabase } = gate;
+  const form = document.querySelector<HTMLFormElement>('[data-contact-form]');
+  const alertEl = document.querySelector('[data-admin-alert]');
+
+  const show = (message: string, error = false) => {
+    if (!alertEl) return;
+    alertEl.hidden = false;
+    alertEl.textContent = message;
+    alertEl.classList.toggle('is-error', error);
+  };
+
+  const fields = [
+    'eyebrow',
+    'title',
+    'lead',
+    'description',
+    'whatsapp_title',
+    'whatsapp_text',
+    'whatsapp_cta',
+    'whatsapp_context',
+    'info_title',
+    'email_label',
+    'location_label',
+    'location',
+    'hours_label',
+    'hours',
+    'info_cta',
+  ] as const;
+
+  function fill(row: Record<(typeof fields)[number], string>) {
+    if (!form) return;
+    for (const name of fields) {
+      const field = form.elements.namedItem(name) as HTMLInputElement | HTMLTextAreaElement | null;
+      if (field) field.value = row[name];
+    }
+  }
+
+  const defaults = {
+    eyebrow: defaultContactPageCopy.eyebrow,
+    title: defaultContactPageCopy.title,
+    lead: defaultContactPageCopy.lead,
+    description: defaultContactPageCopy.description,
+    whatsapp_title: defaultContactPageCopy.whatsappTitle,
+    whatsapp_text: defaultContactPageCopy.whatsappText,
+    whatsapp_cta: defaultContactPageCopy.whatsappCta,
+    whatsapp_context: defaultContactPageCopy.whatsappContext,
+    info_title: defaultContactPageCopy.infoTitle,
+    email_label: defaultContactPageCopy.emailLabel,
+    location_label: defaultContactPageCopy.locationLabel,
+    location: defaultContactPageCopy.location,
+    hours_label: defaultContactPageCopy.hoursLabel,
+    hours: defaultContactPageCopy.hours,
+    info_cta: defaultContactPageCopy.infoCta,
+  };
+
+  async function load() {
+    const { data, error } = await supabase.from('contact_page').select('*').eq('id', 'contact').maybeSingle();
+    if (error) {
+      show('Falta la tabla contact_page. Corre supabase/contact-page.sql en el SQL Editor.', true);
+      fill(defaults);
+      return;
+    }
+    if (data) {
+      fill({ ...defaults, ...data });
+      return;
+    }
+    const seed = { id: 'contact', ...defaults };
+    const { error: insertError } = await supabase.from('contact_page').insert(seed);
+    if (insertError) show(insertError.message, true);
+    fill(defaults);
+  }
+
+  form?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const payload = new FormData(form);
+    const row = Object.fromEntries(fields.map((name) => [name, String(payload.get(name) ?? '').trim()]));
+    const { error } = await supabase.from('contact_page').upsert({
+      id: 'contact',
+      ...row,
+      updated_at: new Date().toISOString(),
+    });
+    if (error) show(error.message, true);
+    else {
+      fill(row);
+      show('Contacto guardado.');
+    }
+  });
+
+  await load();
+</script>

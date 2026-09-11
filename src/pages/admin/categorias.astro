@@ -1,0 +1,114 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+---
+
+<AdminLayout title="Categorías">
+  <p class="muted">El enlace de la vitrina puede ser una página, colección o producto del sitio, o una URL externa.</p>
+  <p class="admin-alert" data-admin-alert hidden></p>
+  <div data-cat-form-wrap></div>
+</AdminLayout>
+
+<script>
+  import { requireAdminSession } from '../../lib/admin';
+  import { bindRoutePickers, loadSiteRoutes, pickerHref, routePickerHtml } from '../../lib/admin-routes';
+  import { categoryHref, sanitizeVitrinaIcon, vitrinaIconOptions } from '../../lib/home';
+  import { bindMediaFields, mediaFieldHtml } from '../../lib/media/media-picker';
+  import { escapeHtml } from '../../lib/media/ui';
+
+  const gate = await requireAdminSession();
+  if (!gate) throw new Error('redirect');
+  const { supabase } = gate;
+  const wrap = document.querySelector('[data-cat-form-wrap]');
+  const alertEl = document.querySelector('[data-admin-alert]');
+  const siteRoutes = await loadSiteRoutes(supabase);
+
+  const show = (message: string, error = false) => {
+    if (!alertEl) return;
+    alertEl.hidden = false;
+    alertEl.textContent = message;
+    alertEl.classList.toggle('is-error', error);
+  };
+
+  async function render() {
+    const { data, error } = await supabase.from('categories').select('*').order('orden');
+    if (error) {
+      show(error.message, true);
+      return;
+    }
+    if (!wrap) return;
+    wrap.innerHTML = (data ?? [])
+      .map(
+        (row) => `
+        <form class="admin-form" data-cat-form data-slug="${escapeHtml(row.slug)}" style="margin-bottom:2rem;max-width:none">
+          <div class="row-2">
+            <div>
+              <label>Nombre <input name="nombre" value="${escapeHtml(row.nombre)}" required></label>
+              <label>Orden <input name="orden" type="number" value="${row.orden}"></label>
+            </div>
+          </div>
+          <label>Slug <input name="slug" value="${escapeHtml(row.slug)}" readonly></label>
+          ${routePickerHtml({
+            label: 'Enlace de la vitrina',
+            value: categoryHref(row.slug, row.enlace),
+            routes: siteRoutes,
+            name: 'enlace',
+          })}
+          <label>Descripción <textarea name="descripcion" required>${escapeHtml(row.descripcion)}</textarea></label>
+          <div class="row-2">
+            <label>Icono de vitrina
+              <select name="icono">
+                ${vitrinaIconOptions
+                  .map(
+                    (option) =>
+                      `<option value="${option.value}" ${option.value === sanitizeVitrinaIcon(row.icono ?? '', row.slug) ? 'selected' : ''}>${option.label}</option>`,
+                  )
+                  .join('')}
+              </select>
+            </label>
+            <label class="admin-check"><input type="checkbox" name="en_vitrina" ${row.en_vitrina !== false ? 'checked' : ''}> Mostrar en la vitrina</label>
+          </div>
+          ${mediaFieldHtml({
+            name: 'imagen',
+            label: 'Imagen',
+            value: row.imagen,
+            folder: 'categories',
+            required: true,
+          })}
+          <div class="admin-actions">
+            <button class="btn btn--gold" type="submit">Guardar</button>
+          </div>
+        </form>
+      `,
+      )
+      .join('');
+    bindMediaFields(wrap);
+    bindRoutePickers(wrap);
+  }
+
+  wrap?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const form = (event.target as HTMLElement).closest<HTMLFormElement>('[data-cat-form]');
+    if (!form) return;
+    const slug = form.dataset.slug!;
+    const payload = new FormData(form);
+    const nombre = String(payload.get('nombre') ?? '');
+    const descripcion = String(payload.get('descripcion') ?? '');
+    const orden = Number(payload.get('orden') ?? 0);
+    const imagen = String(payload.get('imagen') ?? '').trim();
+    const icono = sanitizeVitrinaIcon(String(payload.get('icono') ?? ''), slug);
+    const enlace = categoryHref(slug, pickerHref(form, `/catalogo/${slug}`));
+    const en_vitrina = Boolean(form.querySelector<HTMLInputElement>('[name="en_vitrina"]')?.checked);
+    const update: Record<string, unknown> = { nombre, descripcion, orden, icono, enlace, en_vitrina };
+    if (imagen) update.imagen = imagen;
+    try {
+      const { error } = await supabase.from('categories').update(update).eq('slug', slug);
+      if (error) throw error;
+      show('Categoría guardada.');
+      await render();
+    } catch (error) {
+      show(error instanceof Error ? error.message : 'No se pudo guardar.', true);
+    }
+  });
+
+  await render();
+</script>

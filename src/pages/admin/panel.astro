@@ -1,0 +1,57 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+---
+
+<AdminLayout title="Resumen">
+  <p class="admin-alert" data-admin-alert hidden></p>
+  <div class="admin-grid" data-stats>
+    <a class="admin-card" href="/admin/productos">
+      <span>Productos</span>
+      <strong data-stat="products">—</strong>
+    </a>
+    <a class="admin-card" href="/admin/categorias">
+      <span>Categorías</span>
+      <strong data-stat="categories">—</strong>
+    </a>
+    <a class="admin-card" href="/admin/productos">
+      <span>Stock bajo</span>
+      <strong data-stat="low">—</strong>
+    </a>
+    <a class="admin-card" href="/admin/inicio/hero">
+      <span>Slides del hero</span>
+      <strong data-stat="hero">—</strong>
+    </a>
+  </div>
+</AdminLayout>
+
+<script>
+  import { requireAdminSession } from '../../lib/admin';
+
+  const gate = await requireAdminSession();
+  if (!gate) throw new Error('redirect');
+  const { supabase } = gate;
+  const alertEl = document.querySelector('[data-admin-alert]');
+
+  const [{ count: products }, { count: categories }, { data: lowRows }, { count: hero }] = await Promise.all([
+    supabase.from('products').select('*', { count: 'exact', head: true }),
+    supabase.from('categories').select('*', { count: 'exact', head: true }),
+    supabase.from('products').select('codigo').lte('stock', 3),
+    supabase.from('hero_slides').select('*', { count: 'exact', head: true }).eq('active', true),
+  ]);
+
+  const set = (key: string, value: number | null | undefined) => {
+    const el = document.querySelector(`[data-stat="${key}"]`);
+    if (el) el.textContent = String(value ?? 0);
+  };
+
+  set('products', products);
+  set('categories', categories);
+  set('low', lowRows?.length ?? 0);
+  set('hero', hero);
+
+  if (alertEl && products == null) {
+    alertEl.hidden = false;
+    alertEl.classList.add('is-error');
+    alertEl.textContent = 'No se pudo leer el catálogo. Corre supabase/dashboard.sql en el SQL Editor.';
+  }
+</script>

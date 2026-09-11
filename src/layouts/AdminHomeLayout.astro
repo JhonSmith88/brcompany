@@ -1,0 +1,19 @@
+---
+import AdminLayout from './AdminLayout.astro';
+
+interface Props {
+  title: string;
+  lead: string;
+}
+
+const { title, lead } = Astro.props;
+---
+
+<AdminLayout title={title}>
+  <p class="muted admin-home-lead">
+    <a href="/admin/inicio">← Secciones de Inicio</a>
+    <span>{lead}</span>
+  </p>
+  <p class="admin-alert" data-admin-alert hidden></p>
+  <slot />
+</AdminLayout>

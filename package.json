@@ -9,11 +9,13 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "seed:hero": "node scripts/seed-hero.mjs"
   },
   "dependencies": {
     "@fontsource-variable/cormorant-garamond": "^5.2.5",
     "@fontsource/dm-sans": "^5.2.6",
+    "@supabase/supabase-js": "^2.116.0",
     "astro": "^7.2.0"
   }
 }

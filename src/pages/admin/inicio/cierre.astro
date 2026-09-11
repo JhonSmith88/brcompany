@@ -1,0 +1,120 @@
+---
+import AdminHomeLayout from '../../../layouts/AdminHomeLayout.astro';
+import { site } from '../../../data/site';
+---
+
+<AdminHomeLayout title="Cierre WhatsApp" lead="El bloque final del inicio: foto de fondo, título y botón para escribir por WhatsApp.">
+  <form class="admin-form" data-order-copy>
+    <div class="row-2">
+      <label>Título <input name="title" required></label>
+      <label>Frase destacada <input name="title_em"></label>
+    </div>
+    <label>Texto <textarea name="lead" required></textarea></label>
+    <label>Botón <input name="cta_label" required></label>
+    <label>Mensaje de WhatsApp <textarea name="cta_context" required></textarea></label>
+    <p class="muted">Se envía después de “Hola, escribo desde la web de {site.name}.”</p>
+    <div data-order-image></div>
+    <div class="admin-actions">
+      <button class="btn btn--gold" type="submit">Guardar cierre</button>
+    </div>
+  </form>
+</AdminHomeLayout>
+
+<script>
+  import { requireAdminSession } from '../../../lib/admin';
+  import { showAdminAlert } from '../../../lib/admin-home';
+  import { defaultOrderCopy, safeImageSrc } from '../../../lib/home';
+  import { bindMediaFields, mediaFieldHtml } from '../../../lib/media/media-picker';
+
+  const gate = await requireAdminSession();
+  if (!gate) throw new Error('redirect');
+  const { supabase } = gate;
+  const alertEl = document.querySelector('[data-admin-alert]');
+  const orderForm = document.querySelector<HTMLFormElement>('[data-order-copy]');
+  const orderImageSlot = document.querySelector('[data-order-image]');
+  const show = (message: string, error = false) => showAdminAlert(alertEl, message, error);
+
+  function mountOrderImage(url: string) {
+    if (!orderImageSlot) return;
+    orderImageSlot.innerHTML = mediaFieldHtml({
+      name: 'image_url',
+      label: 'Foto de fondo',
+      value: url,
+      folder: 'order',
+    });
+    bindMediaFields(orderImageSlot);
+  }
+
+  function fillOrderForm(row: {
+    title: string;
+    title_em: string;
+    lead: string;
+    cta_label: string;
+    cta_context: string;
+    image_url: string;
+  }) {
+    if (!orderForm) return;
+    const field = (name: string) => orderForm.elements.namedItem(name) as HTMLInputElement | HTMLTextAreaElement;
+    field('title').value = row.title;
+    field('title_em').value = row.title_em;
+    field('lead').value = row.lead;
+    field('cta_label').value = row.cta_label;
+    field('cta_context').value = row.cta_context;
+    mountOrderImage(row.image_url);
+  }
+
+  async function loadOrderCopy() {
+    const { data, error } = await supabase.from('home_order').select('*').eq('id', 'home').maybeSingle();
+    if (error) {
+      show('Falta la tabla home_order. Corre supabase/home-order.sql en el SQL Editor.', true);
+      fillOrderForm({
+        title: defaultOrderCopy.title,
+        title_em: defaultOrderCopy.titleEm,
+        lead: defaultOrderCopy.lead,
+        cta_label: defaultOrderCopy.ctaLabel,
+        cta_context: defaultOrderCopy.ctaContext,
+        image_url: defaultOrderCopy.imageUrl,
+      });
+      return;
+    }
+    if (data) {
+      fillOrderForm(data);
+      return;
+    }
+    const seed = {
+      id: 'home',
+      title: defaultOrderCopy.title,
+      title_em: defaultOrderCopy.titleEm,
+      lead: defaultOrderCopy.lead,
+      cta_label: defaultOrderCopy.ctaLabel,
+      cta_context: defaultOrderCopy.ctaContext,
+      image_url: defaultOrderCopy.imageUrl,
+    };
+    const { error: insertError } = await supabase.from('home_order').insert(seed);
+    if (insertError) show(insertError.message, true);
+    fillOrderForm(seed);
+  }
+
+  orderForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const payload = new FormData(orderForm);
+    const row = {
+      id: 'home',
+      title: String(payload.get('title') ?? '').trim(),
+      title_em: String(payload.get('title_em') ?? '').trim(),
+      lead: String(payload.get('lead') ?? '').trim(),
+      cta_label: String(payload.get('cta_label') ?? '').trim(),
+      cta_context: String(payload.get('cta_context') ?? '').trim(),
+      image_url: safeImageSrc(String(payload.get('image_url') ?? ''), defaultOrderCopy.imageUrl),
+      updated_at: new Date().toISOString(),
+    };
+    const { error } = await supabase.from('home_order').upsert(row);
+    if (error) show(error.message, true);
+    else {
+      fillOrderForm(row);
+      show('Cierre de WhatsApp guardado.');
+    }
+  });
+
+  await loadOrderCopy();
+</script>

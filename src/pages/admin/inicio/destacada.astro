@@ -1,0 +1,134 @@
+---
+import AdminHomeLayout from '../../../layouts/AdminHomeLayout.astro';
+---
+
+<AdminHomeLayout title="Pieza destacada" lead="Elige qué producto ocupa el bloque grande del inicio. Las características se editan en ese producto y se ven igual en su ficha.">
+  <form class="admin-form" data-spotlight-copy>
+    <div class="row-2">
+      <label>Antetítulo <input name="eyebrow" required></label>
+      <label>Título <input name="title" required></label>
+    </div>
+    <label>Producto
+      <select name="product_codigo">
+        <option value="">Primera pieza marcada como destacada</option>
+      </select>
+    </label>
+    <label>Texto del botón <input name="cta_label" required></label>
+    <p class="muted" data-spotlight-product-link hidden></p>
+    <div class="admin-actions">
+      <button class="btn btn--gold" type="submit">Guardar pieza destacada</button>
+    </div>
+  </form>
+</AdminHomeLayout>
+
+<script>
+  import { requireAdminSession } from '../../../lib/admin';
+  import { showAdminAlert } from '../../../lib/admin-home';
+  import { defaultSpotlightCopy } from '../../../lib/home';
+  import { escapeHtml } from '../../../lib/media/ui';
+
+  const gate = await requireAdminSession();
+  if (!gate) throw new Error('redirect');
+  const { supabase } = gate;
+  const alertEl = document.querySelector('[data-admin-alert]');
+  const spotlightForm = document.querySelector<HTMLFormElement>('[data-spotlight-copy]');
+  const spotlightLink = document.querySelector<HTMLParagraphElement>('[data-spotlight-product-link]');
+  const show = (message: string, error = false) => showAdminAlert(alertEl, message, error);
+
+  type CatalogProduct = { codigo: string; nombre: string; destacado: boolean };
+
+  async function loadCatalogProducts(): Promise<CatalogProduct[]> {
+    const { data } = await supabase.from('products').select('codigo, nombre, destacado').order('nombre');
+    return (data ?? []) as CatalogProduct[];
+  }
+
+  function fillProductSelect(select: HTMLSelectElement | null, products: CatalogProduct[], emptyLabel: string, current = '') {
+    if (!select) return;
+    select.innerHTML = `<option value="">${escapeHtml(emptyLabel)}</option>${products
+      .map(
+        (row) =>
+          `<option value="${escapeHtml(row.codigo)}">${escapeHtml(`${row.nombre} — ${row.codigo}${row.destacado ? ' · destacada' : ''}`)}</option>`,
+      )
+      .join('')}`;
+    select.value = current;
+  }
+
+  function fillSpotlightForm(row: { eyebrow: string; title: string; cta_label: string; product_codigo: string | null }) {
+    if (!spotlightForm) return;
+    const field = (name: string) => spotlightForm.elements.namedItem(name) as HTMLInputElement | HTMLSelectElement;
+    field('eyebrow').value = row.eyebrow;
+    field('title').value = row.title;
+    field('cta_label').value = row.cta_label;
+    field('product_codigo').value = row.product_codigo ?? '';
+    updateSpotlightLink(row.product_codigo);
+  }
+
+  function updateSpotlightLink(codigo: string | null) {
+    if (!spotlightLink) return;
+    if (!codigo) {
+      spotlightLink.hidden = true;
+      spotlightLink.textContent = '';
+      return;
+    }
+    spotlightLink.hidden = false;
+    spotlightLink.innerHTML = `Edita las características de esta pieza en <a href="/admin/productos/editar?codigo=${encodeURIComponent(codigo)}">Productos</a>.`;
+  }
+
+  async function loadSpotlightCopy() {
+    const select = spotlightForm?.elements.namedItem('product_codigo') as HTMLSelectElement | null;
+    const productRows = await loadCatalogProducts();
+    fillProductSelect(select, productRows, 'Primera pieza marcada como destacada', select?.value ?? '');
+
+    const { data, error } = await supabase.from('home_spotlight').select('*').eq('id', 'home').maybeSingle();
+    if (error) {
+      show('Falta la tabla home_spotlight. Corre supabase/home-spotlight.sql en el SQL Editor.', true);
+      fillSpotlightForm({
+        eyebrow: defaultSpotlightCopy.eyebrow,
+        title: defaultSpotlightCopy.title,
+        cta_label: defaultSpotlightCopy.ctaLabel,
+        product_codigo: defaultSpotlightCopy.productCodigo,
+      });
+      return;
+    }
+    if (data) {
+      fillSpotlightForm(data);
+      return;
+    }
+    const seed = {
+      id: 'home',
+      eyebrow: defaultSpotlightCopy.eyebrow,
+      title: defaultSpotlightCopy.title,
+      cta_label: defaultSpotlightCopy.ctaLabel,
+      product_codigo: productRows?.find((row) => row.destacado)?.codigo ?? productRows?.[0]?.codigo ?? null,
+    };
+    const { error: insertError } = await supabase.from('home_spotlight').insert(seed);
+    if (insertError) show(insertError.message, true);
+    fillSpotlightForm(seed);
+  }
+
+  spotlightForm?.elements.namedItem('product_codigo')?.addEventListener('change', (event) => {
+    updateSpotlightLink((event.target as HTMLSelectElement).value || null);
+  });
+
+  spotlightForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const payload = new FormData(spotlightForm);
+    const productCodigo = String(payload.get('product_codigo') ?? '').trim();
+    const row = {
+      id: 'home',
+      eyebrow: String(payload.get('eyebrow') ?? '').trim(),
+      title: String(payload.get('title') ?? '').trim(),
+      cta_label: String(payload.get('cta_label') ?? '').trim(),
+      product_codigo: productCodigo || null,
+      updated_at: new Date().toISOString(),
+    };
+    const { error } = await supabase.from('home_spotlight').upsert(row);
+    if (error) show(error.message, true);
+    else {
+      fillSpotlightForm(row);
+      show('Pieza destacada guardada.');
+    }
+  });
+
+  await loadSpotlightCopy();
+</script>

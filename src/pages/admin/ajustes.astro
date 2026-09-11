@@ -1,0 +1,130 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+---
+
+<AdminLayout title="Ajustes">
+  <p class="muted">Estos datos se usan en el pie, contacto, botones de WhatsApp y el pedido del carrito.</p>
+  <p class="admin-alert" data-admin-alert hidden></p>
+  <form class="admin-form" data-settings-form>
+    <label>WhatsApp (número)
+      <input name="whatsapp_number" inputmode="tel" autocomplete="tel" required>
+    </label>
+    <p class="muted">Incluye el código de país. Ejemplo: 593988743194. Se quitan espacios y signos al guardar.</p>
+    <label>WhatsApp (cómo se muestra)
+      <input name="whatsapp_display" placeholder="+593 98 874 3194">
+    </label>
+    <label>Correo
+      <input name="email" type="email" required>
+    </label>
+    <label>Instagram
+      <input name="instagram_url" type="text" inputmode="url" placeholder="https://instagram.com/…">
+    </label>
+    <label>Facebook
+      <input name="facebook_url" type="text" inputmode="url" placeholder="https://facebook.com/…">
+    </label>
+    <div class="admin-actions">
+      <button class="btn btn--gold" type="submit">Guardar ajustes</button>
+    </div>
+  </form>
+</AdminLayout>
+
+<script>
+  import { requireAdminSession } from '../../lib/admin';
+  import {
+    defaultSiteSettings,
+    mapSiteSettings,
+    sanitizeEmail,
+    sanitizeSocialUrl,
+    sanitizeWhatsAppDisplay,
+    sanitizeWhatsAppNumber,
+  } from '../../lib/site-settings';
+
+  const gate = await requireAdminSession();
+  if (!gate) throw new Error('redirect');
+  const { supabase } = gate;
+  const form = document.querySelector<HTMLFormElement>('[data-settings-form]');
+  const alertEl = document.querySelector('[data-admin-alert]');
+
+  const show = (message: string, error = false) => {
+    if (!alertEl) return;
+    alertEl.hidden = false;
+    alertEl.textContent = message;
+    alertEl.classList.toggle('is-error', error);
+  };
+
+  function fill(row: {
+    whatsapp_number: string;
+    whatsapp_display: string;
+    email: string;
+    instagram_url: string;
+    facebook_url: string;
+  }) {
+    if (!form) return;
+    const field = (name: string) => form.elements.namedItem(name) as HTMLInputElement;
+    field('whatsapp_number').value = row.whatsapp_number;
+    field('whatsapp_display').value = row.whatsapp_display;
+    field('email').value = row.email;
+    field('instagram_url').value = row.instagram_url;
+    field('facebook_url').value = row.facebook_url;
+  }
+
+  async function load() {
+    const { data, error } = await supabase.from('site_settings').select('*').eq('id', 'site').maybeSingle();
+    if (error) {
+      show('Falta la tabla site_settings. Corre supabase/site-settings.sql en el SQL Editor.', true);
+      fill({
+        whatsapp_number: defaultSiteSettings.whatsappNumber,
+        whatsapp_display: defaultSiteSettings.whatsappDisplay,
+        email: defaultSiteSettings.email,
+        instagram_url: defaultSiteSettings.instagramUrl,
+        facebook_url: defaultSiteSettings.facebookUrl,
+      });
+      return;
+    }
+    if (data) {
+      const mapped = mapSiteSettings(data);
+      fill({
+        whatsapp_number: mapped.whatsappNumber,
+        whatsapp_display: mapped.whatsappDisplay,
+        email: mapped.email,
+        instagram_url: mapped.instagramUrl,
+        facebook_url: mapped.facebookUrl,
+      });
+      return;
+    }
+    const seed = {
+      id: 'site',
+      whatsapp_number: defaultSiteSettings.whatsappNumber,
+      whatsapp_display: defaultSiteSettings.whatsappDisplay,
+      email: defaultSiteSettings.email,
+      instagram_url: defaultSiteSettings.instagramUrl,
+      facebook_url: defaultSiteSettings.facebookUrl,
+    };
+    const { error: insertError } = await supabase.from('site_settings').insert(seed);
+    if (insertError) show(insertError.message, true);
+    fill(seed);
+  }
+
+  form?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const payload = new FormData(form);
+    const whatsappNumber = sanitizeWhatsAppNumber(String(payload.get('whatsapp_number') ?? ''));
+    const row = {
+      id: 'site',
+      whatsapp_number: whatsappNumber,
+      whatsapp_display: sanitizeWhatsAppDisplay(String(payload.get('whatsapp_display') ?? ''), whatsappNumber),
+      email: sanitizeEmail(String(payload.get('email') ?? '')),
+      instagram_url: sanitizeSocialUrl(String(payload.get('instagram_url') ?? '')),
+      facebook_url: sanitizeSocialUrl(String(payload.get('facebook_url') ?? '')),
+      updated_at: new Date().toISOString(),
+    };
+    const { error } = await supabase.from('site_settings').upsert(row);
+    if (error) show(error.message, true);
+    else {
+      fill(row);
+      show('Ajustes guardados.');
+    }
+  });
+
+  await load();
+</script>

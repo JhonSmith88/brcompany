@@ -1,0 +1,252 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+---
+
+<AdminLayout title="Quiénes somos">
+  <p class="muted">Texto, fotos y pilares de la página pública. En los párrafos puedes usar **negrita**.</p>
+  <p class="admin-alert" data-admin-alert hidden></p>
+
+  <form class="admin-form" data-about-form>
+    <div class="row-2">
+      <label>Antetítulo <input name="eyebrow" required></label>
+      <label>Título <input name="title" required></label>
+    </div>
+    <label>Párrafo 1 <textarea name="paragraph_1" required></textarea></label>
+    <label>Párrafo 2 <textarea name="paragraph_2"></textarea></label>
+    <label>Párrafo 3 <textarea name="paragraph_3"></textarea></label>
+    <label>Descripción para buscadores <input name="description" required></label>
+    <label>Botón <input name="cta_label" required></label>
+    <label>Mensaje de WhatsApp <textarea name="cta_context" required></textarea></label>
+    <div data-about-image></div>
+    <div data-about-logo></div>
+    <div class="admin-actions">
+      <button class="btn btn--gold" type="submit">Guardar texto</button>
+    </div>
+  </form>
+
+  <h2 class="section-title" style="font-size: 1.6rem; margin-top: 2.5rem">Pilares</h2>
+  <p class="muted">Los tres bloques bajo el texto. Puedes añadir, reordenar u ocultar.</p>
+  <div class="admin-actions">
+    <button type="button" class="btn btn--outline" data-add-pillar>Añadir pilar</button>
+  </div>
+  <div class="admin-benefits" data-pillars-list></div>
+</AdminLayout>
+
+<script>
+  import { requireAdminSession } from '../../lib/admin';
+  import { defaultAboutCopy, defaultAboutPillars } from '../../lib/about';
+  import { benefitIconOptions, safeImageSrc, sanitizeBenefitIcon } from '../../lib/home';
+  import { bindMediaFields, mediaFieldHtml } from '../../lib/media/media-picker';
+  import { escapeHtml } from '../../lib/media/ui';
+
+  const gate = await requireAdminSession();
+  if (!gate) throw new Error('redirect');
+  const { supabase } = gate;
+  const form = document.querySelector<HTMLFormElement>('[data-about-form]');
+  const alertEl = document.querySelector('[data-admin-alert]');
+  const pillarsList = document.querySelector('[data-pillars-list]');
+  const imageSlot = document.querySelector('[data-about-image]');
+  const logoSlot = document.querySelector('[data-about-logo]');
+
+  const show = (message: string, error = false) => {
+    if (!alertEl) return;
+    alertEl.hidden = false;
+    alertEl.textContent = message;
+    alertEl.classList.toggle('is-error', error);
+  };
+
+  function mountMedia(slot: Element | null, name: string, label: string, value: string) {
+    if (!slot) return;
+    slot.innerHTML = mediaFieldHtml({ name, label, value, folder: 'about' });
+    bindMediaFields(slot);
+  }
+
+  function fillForm(row: {
+    eyebrow: string;
+    title: string;
+    paragraph_1: string;
+    paragraph_2: string;
+    paragraph_3: string;
+    description: string;
+    cta_label: string;
+    cta_context: string;
+    image_url: string;
+    logo_url: string;
+  }) {
+    if (!form) return;
+    const field = (name: string) => form.elements.namedItem(name) as HTMLInputElement | HTMLTextAreaElement;
+    field('eyebrow').value = row.eyebrow;
+    field('title').value = row.title;
+    field('paragraph_1').value = row.paragraph_1;
+    field('paragraph_2').value = row.paragraph_2;
+    field('paragraph_3').value = row.paragraph_3;
+    field('description').value = row.description;
+    field('cta_label').value = row.cta_label;
+    field('cta_context').value = row.cta_context;
+    mountMedia(imageSlot, 'image_url', 'Foto de fondo', row.image_url);
+    mountMedia(logoSlot, 'logo_url', 'Logo / escudo', row.logo_url);
+  }
+
+  async function loadCopy() {
+    const { data, error } = await supabase.from('about_page').select('*').eq('id', 'about').maybeSingle();
+    if (error) {
+      show('Falta la tabla about_page. Corre supabase/about.sql en el SQL Editor.', true);
+      fillForm({
+        eyebrow: defaultAboutCopy.eyebrow,
+        title: defaultAboutCopy.title,
+        paragraph_1: defaultAboutCopy.paragraph1,
+        paragraph_2: defaultAboutCopy.paragraph2,
+        paragraph_3: defaultAboutCopy.paragraph3,
+        description: defaultAboutCopy.description,
+        cta_label: defaultAboutCopy.ctaLabel,
+        cta_context: defaultAboutCopy.ctaContext,
+        image_url: defaultAboutCopy.imageUrl,
+        logo_url: defaultAboutCopy.logoUrl,
+      });
+      return;
+    }
+    if (data) {
+      fillForm(data);
+      return;
+    }
+    const seed = {
+      id: 'about',
+      eyebrow: defaultAboutCopy.eyebrow,
+      title: defaultAboutCopy.title,
+      paragraph_1: defaultAboutCopy.paragraph1,
+      paragraph_2: defaultAboutCopy.paragraph2,
+      paragraph_3: defaultAboutCopy.paragraph3,
+      description: defaultAboutCopy.description,
+      cta_label: defaultAboutCopy.ctaLabel,
+      cta_context: defaultAboutCopy.ctaContext,
+      image_url: defaultAboutCopy.imageUrl,
+      logo_url: defaultAboutCopy.logoUrl,
+    };
+    const { error: insertError } = await supabase.from('about_page').insert(seed);
+    if (insertError) show(insertError.message, true);
+    fillForm(seed);
+  }
+
+  form?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const payload = new FormData(form);
+    const row = {
+      id: 'about',
+      eyebrow: String(payload.get('eyebrow') ?? '').trim(),
+      title: String(payload.get('title') ?? '').trim(),
+      paragraph_1: String(payload.get('paragraph_1') ?? '').trim(),
+      paragraph_2: String(payload.get('paragraph_2') ?? '').trim(),
+      paragraph_3: String(payload.get('paragraph_3') ?? '').trim(),
+      description: String(payload.get('description') ?? '').trim(),
+      cta_label: String(payload.get('cta_label') ?? '').trim(),
+      cta_context: String(payload.get('cta_context') ?? '').trim(),
+      image_url: safeImageSrc(String(payload.get('image_url') ?? ''), defaultAboutCopy.imageUrl),
+      logo_url: safeImageSrc(String(payload.get('logo_url') ?? ''), defaultAboutCopy.logoUrl),
+      updated_at: new Date().toISOString(),
+    };
+    const { error } = await supabase.from('about_page').upsert(row);
+    if (error) show(error.message, true);
+    else {
+      fillForm(row);
+      show('Quiénes somos guardado.');
+    }
+  });
+
+  function iconSelect(selected: string) {
+    return benefitIconOptions
+      .map((option) => `<option value="${option.value}" ${option.value === selected ? 'selected' : ''}>${option.label}</option>`)
+      .join('');
+  }
+
+  function pillarCard(row: { id: string; title: string; text: string; icon: string; sort_order: number; active: boolean }) {
+    return `
+      <article data-pillar-id="${row.id}">
+        <div class="row-2">
+          <label>Título <input type="text" value="${escapeHtml(row.title)}" data-pillar-title></label>
+          <label>Icono <select data-pillar-icon>${iconSelect(sanitizeBenefitIcon(row.icon))}</select></label>
+        </div>
+        <label>Texto <input type="text" value="${escapeHtml(row.text)}" data-pillar-text></label>
+        <div class="admin-benefits__meta">
+          <input type="number" value="${row.sort_order}" data-pillar-order>
+          <label class="admin-check"><input type="checkbox" data-pillar-active ${row.active ? 'checked' : ''}> Visible</label>
+          <button type="button" data-pillar-save>Guardar</button>
+          <button type="button" data-pillar-delete>Quitar</button>
+        </div>
+      </article>
+    `;
+  }
+
+  async function renderPillars() {
+    const { data, error } = await supabase.from('about_pillars').select('*').order('sort_order');
+    if (error) {
+      show('Falta la tabla about_pillars. Corre supabase/about.sql en el SQL Editor.', true);
+      return;
+    }
+    if (!data?.length) {
+      const seed = defaultAboutPillars.map((item, index) => ({
+        ...item,
+        sort_order: index,
+        active: true,
+      }));
+      const { data: inserted, error: insertError } = await supabase.from('about_pillars').insert(seed).select();
+      if (insertError) {
+        show(insertError.message, true);
+        return;
+      }
+      if (pillarsList) pillarsList.innerHTML = (inserted ?? []).map((row) => pillarCard(row as never)).join('');
+      return;
+    }
+    if (pillarsList) pillarsList.innerHTML = data.map((row) => pillarCard(row as never)).join('');
+  }
+
+  document.querySelector('[data-add-pillar]')?.addEventListener('click', async () => {
+    const { count } = await supabase.from('about_pillars').select('*', { count: 'exact', head: true });
+    const { error } = await supabase.from('about_pillars').insert({
+      title: 'Nuevo pilar',
+      text: '',
+      icon: 'star',
+      sort_order: count ?? 0,
+      active: true,
+    });
+    if (error) show(error.message, true);
+    else {
+      await renderPillars();
+      show('Pilar añadido.');
+    }
+  });
+
+  pillarsList?.addEventListener('click', async (event) => {
+    const target = event.target as HTMLElement;
+    const card = target.closest<HTMLElement>('[data-pillar-id]');
+    if (!card) return;
+    const id = card.dataset.pillarId!;
+
+    if (target.closest('[data-pillar-save]')) {
+      const title = card.querySelector<HTMLInputElement>('[data-pillar-title]')?.value.trim() ?? '';
+      const text = card.querySelector<HTMLInputElement>('[data-pillar-text]')?.value.trim() ?? '';
+      const icon = sanitizeBenefitIcon(card.querySelector<HTMLSelectElement>('[data-pillar-icon]')?.value ?? 'shield');
+      const sort_order = Number(card.querySelector<HTMLInputElement>('[data-pillar-order]')?.value ?? 0);
+      const active = card.querySelector<HTMLInputElement>('[data-pillar-active]')?.checked ?? true;
+      if (!title) {
+        show('El título del pilar no puede estar vacío.', true);
+        return;
+      }
+      const { error } = await supabase.from('about_pillars').update({ title, text, icon, sort_order, active }).eq('id', id);
+      show(error ? error.message : 'Pilar guardado.', Boolean(error));
+      if (!error) await renderPillars();
+      return;
+    }
+
+    if (target.closest('[data-pillar-delete]')) {
+      const { error } = await supabase.from('about_pillars').delete().eq('id', id);
+      if (error) show(error.message, true);
+      else {
+        await renderPillars();
+        show('Pilar quitado.');
+      }
+    }
+  });
+
+  await loadCopy();
+  await renderPillars();
+</script>

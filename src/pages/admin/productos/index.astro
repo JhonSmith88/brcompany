@@ -1,0 +1,78 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+---
+
+<AdminLayout title="Productos">
+  <p class="admin-alert" data-admin-alert hidden></p>
+  <div class="admin-actions">
+    <a class="btn btn--gold" href="/admin/productos/editar">Nuevo producto</a>
+  </div>
+  <div style="overflow:auto">
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>Foto</th>
+          <th>Código</th>
+          <th>Nombre</th>
+          <th>Categoría</th>
+          <th>Precio</th>
+          <th>Stock</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody data-product-rows></tbody>
+    </table>
+  </div>
+</AdminLayout>
+
+<script>
+  import { requireAdminSession } from '../../../lib/admin';
+  import { formatPrice } from '../../../data/site';
+
+  const gate = await requireAdminSession();
+  if (!gate) throw new Error('redirect');
+  const { supabase } = gate;
+  const alertEl = document.querySelector('[data-admin-alert]');
+  const body = document.querySelector('[data-product-rows]');
+
+  const [{ data: products, error: productError }, { data: images }] = await Promise.all([
+    supabase.from('products').select('*, categories(nombre)').order('nombre'),
+    supabase.from('product_images').select('product_codigo, thumb, is_principal, sort_order'),
+  ]);
+
+  if (productError && alertEl) {
+    alertEl.hidden = false;
+    alertEl.classList.add('is-error');
+    alertEl.textContent = productError.message;
+  }
+
+  const thumbOf = (codigo: string) => {
+    const list = (images ?? []).filter((row) => row.product_codigo === codigo);
+    return list.find((row) => row.is_principal)?.thumb ?? list[0]?.thumb ?? '';
+  };
+
+  const categoryName = (row: { categories?: { nombre: string } | { nombre: string }[] | null }) => {
+    const related = row.categories;
+    if (Array.isArray(related)) return related[0]?.nombre ?? '';
+    return related?.nombre ?? '';
+  };
+
+  if (body) {
+    body.innerHTML = (products ?? [])
+      .map((row) => {
+        const thumb = thumbOf(row.codigo);
+        return `
+          <tr>
+            <td>${thumb ? `<img src="${thumb}" alt="">` : ''}</td>
+            <td>${row.codigo}</td>
+            <td>${row.nombre}${row.destacado ? ' · destacado' : ''}</td>
+            <td>${categoryName(row)}</td>
+            <td>${formatPrice(row.precio_real)}</td>
+            <td>${row.stock}</td>
+            <td><a href="/admin/productos/editar?codigo=${encodeURIComponent(row.codigo)}">Editar</a></td>
+          </tr>
+        `;
+      })
+      .join('');
+  }
+</script>

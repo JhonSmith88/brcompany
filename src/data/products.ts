@@ -1,8 +1,12 @@
+import type { ProductSpec } from '../lib/product-specs';
+
 export type ProductImage = {
   thumb: string;
   full: string;
   alt: string;
 };
+
+export type { ProductSpec };
 
 export type Product = {
   codigo: string;
@@ -20,6 +24,7 @@ export type Product = {
   demografia: string;
   stock: number;
   destacado?: boolean;
+  caracteristicas: ProductSpec[];
 };
 
 function img(id: string, alt: string): ProductImage {
@@ -52,6 +57,12 @@ export const products: Product[] = [
     demografia: 'Hombres',
     stock: 4,
     destacado: true,
+    caracteristicas: [
+      { title: 'Maquinaria automática', text: 'Alta precisión.', icon: 'gear' },
+      { title: 'Cristal de zafiro', text: 'Resistente a rayaduras.', icon: 'diamond' },
+      { title: 'Resistencia al agua', text: 'Hasta 100 metros.', icon: 'water' },
+      { title: 'Garantía', text: '2 años de garantía.', icon: 'shield' },
+    ],
   },
   {
     codigo: 'RB-W-002',
@@ -74,6 +85,7 @@ export const products: Product[] = [
     demografia: 'Hombres',
     stock: 7,
     destacado: true,
+    caracteristicas: [],
   },
   {
     codigo: 'RB-W-003',
@@ -96,6 +108,7 @@ export const products: Product[] = [
     demografia: 'Hombres',
     stock: 3,
     destacado: true,
+    caracteristicas: [],
   },
   {
     codigo: 'RB-W-004',
@@ -117,6 +130,7 @@ export const products: Product[] = [
     demografia: 'Hombres',
     stock: 2,
     destacado: true,
+    caracteristicas: [],
   },
   {
     codigo: 'RB-B-001',
@@ -137,6 +151,7 @@ export const products: Product[] = [
     categoriaSlug: 'pulseras',
     demografia: 'Hombres',
     stock: 12,
+    caracteristicas: [],
   },
   {
     codigo: 'RB-B-002',
@@ -157,6 +172,7 @@ export const products: Product[] = [
     categoriaSlug: 'pulseras',
     demografia: 'Hombres',
     stock: 20,
+    caracteristicas: [],
   },
   {
     codigo: 'RB-L-001',
@@ -177,6 +193,7 @@ export const products: Product[] = [
     categoriaSlug: 'billeteras',
     demografia: 'Hombres',
     stock: 9,
+    caracteristicas: [],
   },
   {
     codigo: 'RB-C-001',
@@ -197,6 +214,7 @@ export const products: Product[] = [
     categoriaSlug: 'cuidado-personal',
     demografia: 'Hombres',
     stock: 15,
+    caracteristicas: [],
   },
 ];
 

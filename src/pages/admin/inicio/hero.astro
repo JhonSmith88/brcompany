@@ -1,0 +1,272 @@
+---
+import AdminHomeLayout from '../../../layouts/AdminHomeLayout.astro';
+---
+
+<AdminHomeLayout title="Hero" lead="Este bloque aparece sobre las fotos del inicio: antetítulo, marca, párrafo, botón y las imágenes del carrusel.">
+  <form class="admin-form" data-hero-copy>
+    <label>Antetítulo <input name="eyebrow" required></label>
+    <label>Título <input name="title" required></label>
+    <label>Texto <textarea name="lead" required></textarea></label>
+    <div class="row-2">
+      <label>Botón <input name="cta_label" required></label>
+    </div>
+    <div data-hero-cta></div>
+    <div class="admin-actions">
+      <button class="btn btn--gold" type="submit">Guardar texto</button>
+    </div>
+  </form>
+
+  <h2 class="section-title" style="font-size: 1.6rem; margin-top: 2.5rem">Fotos</h2>
+  <p class="muted">Elige de la biblioteca o sube una foto nueva. Las imágenes se reutilizan desde Storage.</p>
+  <div class="admin-actions">
+    <button type="button" class="btn btn--outline" data-add-hero>Añadir slide</button>
+  </div>
+  <div class="admin-hero-slides" data-hero-list></div>
+</AdminHomeLayout>
+
+<script>
+  import { requireAdminSession, storagePathFromUrl } from '../../../lib/admin';
+  import { showAdminAlert } from '../../../lib/admin-home';
+  import { bindRoutePickers, loadSiteRoutes, pickerHref, routePickerHtml, setPickerHref, type SiteRoute } from '../../../lib/admin-routes';
+  import { defaultHeroCopy, safeHeroHref } from '../../../lib/home';
+  import { openMediaModal } from '../../../lib/media/media-picker';
+  import { escapeHtml } from '../../../lib/media/ui';
+
+  const gate = await requireAdminSession();
+  if (!gate) throw new Error('redirect');
+  const { supabase } = gate;
+  const alertEl = document.querySelector('[data-admin-alert]');
+  const copyForm = document.querySelector<HTMLFormElement>('[data-hero-copy]');
+  const heroList = document.querySelector('[data-hero-list]');
+  const siteRoutes: SiteRoute[] = await loadSiteRoutes(supabase);
+  const show = (message: string, error = false) => showAdminAlert(alertEl, message, error);
+
+  const ctaSlot = document.querySelector('[data-hero-cta]');
+  if (ctaSlot) {
+    ctaSlot.innerHTML = routePickerHtml({
+      label: 'Enlace del botón',
+      value: defaultHeroCopy.ctaHref,
+      routes: siteRoutes,
+      name: 'cta_href',
+    });
+    bindRoutePickers(ctaSlot);
+  }
+
+  function fillCopyForm(row: {
+    eyebrow: string;
+    title: string;
+    lead: string;
+    cta_label: string;
+    cta_href: string;
+  }) {
+    if (!copyForm) return;
+    const field = (name: string) => copyForm.elements.namedItem(name) as HTMLInputElement | HTMLTextAreaElement;
+    field('eyebrow').value = row.eyebrow;
+    field('title').value = row.title;
+    field('lead').value = row.lead;
+    field('cta_label').value = row.cta_label;
+    setPickerHref(copyForm, row.cta_href);
+  }
+
+  async function loadHeroCopy() {
+    const { data, error } = await supabase.from('home_hero').select('*').eq('id', 'home').maybeSingle();
+    if (error) {
+      show('Falta la tabla home_hero. Corre supabase/dashboard.sql en el SQL Editor.', true);
+      fillCopyForm({
+        eyebrow: defaultHeroCopy.eyebrow,
+        title: defaultHeroCopy.title,
+        lead: defaultHeroCopy.lead,
+        cta_label: defaultHeroCopy.ctaLabel,
+        cta_href: defaultHeroCopy.ctaHref,
+      });
+      return;
+    }
+    if (data) {
+      fillCopyForm(data);
+      return;
+    }
+    const seed = {
+      id: 'home',
+      eyebrow: defaultHeroCopy.eyebrow,
+      title: defaultHeroCopy.title,
+      lead: defaultHeroCopy.lead,
+      cta_label: defaultHeroCopy.ctaLabel,
+      cta_href: defaultHeroCopy.ctaHref,
+    };
+    const { error: insertError } = await supabase.from('home_hero').insert(seed);
+    if (insertError) show(insertError.message, true);
+    fillCopyForm(seed);
+  }
+
+  copyForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const payload = new FormData(copyForm);
+    const row = {
+      id: 'home',
+      eyebrow: String(payload.get('eyebrow') ?? '').trim(),
+      title: String(payload.get('title') ?? '').trim(),
+      lead: String(payload.get('lead') ?? '').trim(),
+      cta_label: String(payload.get('cta_label') ?? '').trim(),
+      cta_href: safeHeroHref(pickerHref(copyForm, defaultHeroCopy.ctaHref)),
+      updated_at: new Date().toISOString(),
+    };
+    const { error } = await supabase.from('home_hero').upsert(row);
+    if (error) show(error.message, true);
+    else {
+      fillCopyForm(row);
+      show('Texto del hero guardado.');
+    }
+  });
+
+  async function ensureHeroRows() {
+    const { data, error } = await supabase.from('hero_slides').select('*').order('sort_order');
+    if (error) {
+      show('Falta la tabla hero_slides. Corre supabase/dashboard.sql en el SQL Editor.', true);
+      return [];
+    }
+    if (data.length > 0) return data;
+
+    const defaults = [
+      { path: 'hero/01.jpg', alt: 'Reloj de lujo sobre fondo oscuro' },
+      { path: 'hero/02.jpg', alt: 'Reloj en muñeca con luz cálida' },
+      { path: 'hero/03.jpg', alt: 'Reloj clásico de esfera clara' },
+    ];
+    const rows = defaults.map((item, index) => ({
+      storage_path: item.path,
+      image_url: supabase.storage.from('site').getPublicUrl(item.path).data.publicUrl,
+      alt: item.alt,
+      sort_order: index,
+      active: true,
+    }));
+    const { data: inserted, error: insertError } = await supabase.from('hero_slides').insert(rows).select();
+    if (insertError) {
+      show(insertError.message, true);
+      return [];
+    }
+    return inserted ?? [];
+  }
+
+  function heroCard(row: {
+    id: string;
+    image_url: string;
+    alt: string;
+    sort_order: number;
+    active: boolean;
+  }) {
+    return `
+      <article class="admin-hero-slide" data-hero-id="${row.id}">
+        <div class="admin-hero-slide__preview">
+          <img src="${escapeHtml(row.image_url)}" alt="">
+        </div>
+        <div class="admin-hero-slide__fields">
+          <label>Texto alternativo <input type="text" value="${escapeHtml(row.alt)}" data-hero-alt></label>
+          <div class="admin-hero-slide__meta">
+            <label>Orden <input type="number" value="${row.sort_order}" data-hero-order></label>
+            <label class="admin-check"><input type="checkbox" data-hero-active ${row.active ? 'checked' : ''}> Activo</label>
+          </div>
+          <div class="admin-actions" style="margin:0">
+            <button type="button" class="btn btn--outline" data-hero-replace>Reemplazar</button>
+            <button type="button" data-hero-save>Guardar</button>
+            <button type="button" data-hero-delete>Quitar</button>
+          </div>
+        </div>
+      </article>
+    `;
+  }
+
+  async function renderHero() {
+    const rows = await ensureHeroRows();
+    if (heroList) heroList.innerHTML = rows.map((row) => heroCard(row as never)).join('');
+  }
+
+  document.querySelector('[data-add-hero]')?.addEventListener('click', () => {
+    openMediaModal({
+      folder: 'hero',
+      title: 'Añadir slide',
+      onSelect: async (url) => {
+        const realPath = storagePathFromUrl(url);
+        if (!realPath) {
+          show('La imagen debe estar en Storage.', true);
+          return;
+        }
+        try {
+          const { count } = await supabase.from('hero_slides').select('*', { count: 'exact', head: true });
+          const payload = {
+            image_url: url,
+            alt: '',
+            sort_order: count ?? 0,
+            active: true,
+          };
+          let { error } = await supabase.from('hero_slides').insert({ storage_path: realPath, ...payload });
+          if (error?.code === '23505') {
+            ({ error } = await supabase
+              .from('hero_slides')
+              .insert({ storage_path: `hero/ref-${Date.now()}`, ...payload }));
+          }
+          if (error) throw error;
+          await renderHero();
+          show('Slide añadido.');
+        } catch (error) {
+          show(error instanceof Error ? error.message : 'No se pudo añadir.', true);
+        }
+      },
+    });
+  });
+
+  heroList?.addEventListener('click', async (event) => {
+    const target = event.target as HTMLElement;
+    const card = target.closest<HTMLElement>('[data-hero-id]');
+    if (!card) return;
+    const id = card.dataset.heroId!;
+
+    if (target.closest('[data-hero-replace]')) {
+      const currentUrl = card.querySelector('img')?.src || '';
+      openMediaModal({
+        currentUrl,
+        folder: 'hero',
+        title: 'Reemplazar slide',
+        onSelect: async (url) => {
+          const realPath = storagePathFromUrl(url);
+          if (!realPath) {
+            show('La imagen debe estar en Storage.', true);
+            return;
+          }
+          let { error } = await supabase
+            .from('hero_slides')
+            .update({ storage_path: realPath, image_url: url })
+            .eq('id', id);
+          if (error?.code === '23505') {
+            ({ error } = await supabase
+              .from('hero_slides')
+              .update({ storage_path: `hero/ref-${Date.now()}`, image_url: url })
+              .eq('id', id));
+          }
+          if (error) show(error.message, true);
+          else {
+            await renderHero();
+            show('Imagen reemplazada.');
+          }
+        },
+      });
+      return;
+    }
+
+    if (target.closest('[data-hero-save]')) {
+      const alt = card.querySelector<HTMLInputElement>('[data-hero-alt]')?.value ?? '';
+      const active = card.querySelector<HTMLInputElement>('[data-hero-active]')?.checked ?? true;
+      const sort_order = Number(card.querySelector<HTMLInputElement>('[data-hero-order]')?.value ?? 0);
+      const { error } = await supabase.from('hero_slides').update({ alt, active, sort_order }).eq('id', id);
+      show(error ? error.message : 'Slide guardado.', Boolean(error));
+      return;
+    }
+
+    if (target.closest('[data-hero-delete]')) {
+      const { error } = await supabase.from('hero_slides').delete().eq('id', id);
+      if (error) show(error.message, true);
+      else await renderHero();
+    }
+  });
+
+  await loadHeroCopy();
+  await renderHero();
+</script>

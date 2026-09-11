@@ -1,0 +1,216 @@
+---
+import AdminHomeLayout from '../../../layouts/AdminHomeLayout.astro';
+---
+
+<AdminHomeLayout title="Vitrina" lead="Texto de la sección y tarjetas del coverflow. En cada enlace verás las rutas del sitio; también puedes pegar una URL externa.">
+  <form class="admin-form" data-vitrina-copy>
+    <label>Antetítulo <input name="eyebrow" required></label>
+    <div class="row-2">
+      <label>Título <input name="title" required></label>
+      <label>Palabra destacada <input name="title_em"></label>
+    </div>
+    <div class="row-2">
+      <label>Botón <input name="cta_label" required></label>
+    </div>
+    <div data-vitrina-cta></div>
+    <label>Texto de la tarjeta <input name="card_label" required></label>
+    <label>Ayuda (escritorio) <input name="hint" required></label>
+    <label>Ayuda (tablet) <input name="hint_tablet" required></label>
+    <div class="admin-actions">
+      <button class="btn btn--gold" type="submit">Guardar texto de la vitrina</button>
+    </div>
+  </form>
+  <h2 class="section-title" style="font-size: 1.6rem; margin-top: 2.5rem">Colecciones</h2>
+  <div class="admin-vitrina" data-cat-list></div>
+</AdminHomeLayout>
+
+<script>
+  import { requireAdminSession } from '../../../lib/admin';
+  import { showAdminAlert } from '../../../lib/admin-home';
+  import { bindRoutePickers, loadSiteRoutes, pickerHref, routePickerHtml, setPickerHref, type SiteRoute } from '../../../lib/admin-routes';
+  import { categoryHref, defaultVitrinaCopy, safeHeroHref, sanitizeVitrinaIcon, vitrinaIconOptions } from '../../../lib/home';
+  import { openMediaModal } from '../../../lib/media/media-picker';
+  import { escapeHtml } from '../../../lib/media/ui';
+
+  const gate = await requireAdminSession();
+  if (!gate) throw new Error('redirect');
+  const { supabase } = gate;
+  const alertEl = document.querySelector('[data-admin-alert]');
+  const vitrinaForm = document.querySelector<HTMLFormElement>('[data-vitrina-copy]');
+  const catList = document.querySelector('[data-cat-list]');
+  const siteRoutes: SiteRoute[] = await loadSiteRoutes(supabase);
+  const show = (message: string, error = false) => showAdminAlert(alertEl, message, error);
+
+  const ctaSlot = document.querySelector('[data-vitrina-cta]');
+  if (ctaSlot) {
+    ctaSlot.innerHTML = routePickerHtml({
+      label: 'Enlace del botón',
+      value: defaultVitrinaCopy.ctaHref,
+      routes: siteRoutes,
+      name: 'cta_href',
+    });
+    bindRoutePickers(ctaSlot);
+  }
+
+  function fillVitrinaForm(row: {
+    eyebrow: string;
+    title: string;
+    title_em: string;
+    cta_label: string;
+    cta_href: string;
+    card_label: string;
+    hint: string;
+    hint_tablet: string;
+  }) {
+    if (!vitrinaForm) return;
+    const field = (name: string) => vitrinaForm.elements.namedItem(name) as HTMLInputElement;
+    field('eyebrow').value = row.eyebrow;
+    field('title').value = row.title;
+    field('title_em').value = row.title_em;
+    field('cta_label').value = row.cta_label;
+    setPickerHref(vitrinaForm, row.cta_href);
+    field('card_label').value = row.card_label;
+    field('hint').value = row.hint;
+    field('hint_tablet').value = row.hint_tablet;
+  }
+
+  async function loadVitrinaCopy() {
+    const { data, error } = await supabase.from('home_vitrina').select('*').eq('id', 'home').maybeSingle();
+    if (error) {
+      show('Falta la tabla home_vitrina.', true);
+      fillVitrinaForm({
+        eyebrow: defaultVitrinaCopy.eyebrow,
+        title: defaultVitrinaCopy.title,
+        title_em: defaultVitrinaCopy.titleEm,
+        cta_label: defaultVitrinaCopy.ctaLabel,
+        cta_href: defaultVitrinaCopy.ctaHref,
+        card_label: defaultVitrinaCopy.cardLabel,
+        hint: defaultVitrinaCopy.hint,
+        hint_tablet: defaultVitrinaCopy.hintTablet,
+      });
+      return;
+    }
+    if (data) {
+      fillVitrinaForm(data);
+      return;
+    }
+    const seed = {
+      id: 'home',
+      eyebrow: defaultVitrinaCopy.eyebrow,
+      title: defaultVitrinaCopy.title,
+      title_em: defaultVitrinaCopy.titleEm,
+      cta_label: defaultVitrinaCopy.ctaLabel,
+      cta_href: defaultVitrinaCopy.ctaHref,
+      card_label: defaultVitrinaCopy.cardLabel,
+      hint: defaultVitrinaCopy.hint,
+      hint_tablet: defaultVitrinaCopy.hintTablet,
+    };
+    const { error: insertError } = await supabase.from('home_vitrina').insert(seed);
+    if (insertError) show(insertError.message, true);
+    fillVitrinaForm(seed);
+  }
+
+  vitrinaForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const payload = new FormData(vitrinaForm);
+    const row = {
+      id: 'home',
+      eyebrow: String(payload.get('eyebrow') ?? '').trim(),
+      title: String(payload.get('title') ?? '').trim(),
+      title_em: String(payload.get('title_em') ?? '').trim(),
+      cta_label: String(payload.get('cta_label') ?? '').trim(),
+      cta_href: safeHeroHref(pickerHref(vitrinaForm, defaultVitrinaCopy.ctaHref)),
+      card_label: String(payload.get('card_label') ?? '').trim(),
+      hint: String(payload.get('hint') ?? '').trim(),
+      hint_tablet: String(payload.get('hint_tablet') ?? '').trim(),
+      updated_at: new Date().toISOString(),
+    };
+    const { error } = await supabase.from('home_vitrina').upsert(row);
+    if (error) show(error.message, true);
+    else {
+      fillVitrinaForm(row);
+      show('Texto de la vitrina guardado.');
+    }
+  });
+
+  function vitrinaIconSelect(selected: string, slug: string) {
+    const value = sanitizeVitrinaIcon(selected, slug);
+    return vitrinaIconOptions
+      .map((option) => `<option value="${option.value}" ${option.value === value ? 'selected' : ''}>${option.label}</option>`)
+      .join('');
+  }
+
+  async function renderCategories() {
+    const { data, error } = await supabase.from('categories').select('*').order('orden');
+    if (error || !catList) return;
+    catList.innerHTML = (data ?? [])
+      .map(
+        (row) => `
+        <article data-cat-slug="${escapeHtml(row.slug)}">
+          <img src="${escapeHtml(row.imagen)}" alt="">
+          <div class="admin-vitrina__fields">
+            <label>Nombre <input type="text" value="${escapeHtml(row.nombre)}" data-cat-name></label>
+            <label>Orden <input type="number" value="${row.orden}" data-cat-order></label>
+            <label>Icono <select data-cat-icon>${vitrinaIconSelect(row.icono ?? '', row.slug)}</select></label>
+            ${routePickerHtml({
+              label: 'Enlace',
+              value: categoryHref(row.slug, row.enlace),
+              routes: siteRoutes,
+              valueAttr: 'data-cat-href',
+            })}
+            <label class="admin-check"><input type="checkbox" data-cat-visible ${row.en_vitrina !== false ? 'checked' : ''}> En la vitrina</label>
+          </div>
+          <div class="admin-actions" style="margin:0">
+            <button type="button" class="btn btn--outline" data-cat-replace>Biblioteca / foto</button>
+            <button type="button" data-cat-save>Guardar</button>
+          </div>
+        </article>
+      `,
+      )
+      .join('');
+    bindRoutePickers(catList);
+  }
+
+  catList?.addEventListener('click', async (event) => {
+    const target = event.target as HTMLElement;
+    const card = target.closest<HTMLElement>('[data-cat-slug]');
+    if (!card) return;
+    const slug = card.dataset.catSlug!;
+
+    if (target.closest('[data-cat-replace]')) {
+      const currentUrl = card.querySelector('img')?.src || '';
+      openMediaModal({
+        currentUrl,
+        folder: 'categories',
+        title: 'Foto de colección',
+        onSelect: async (url) => {
+          const { error } = await supabase.from('categories').update({ imagen: url }).eq('slug', slug);
+          if (error) show(error.message, true);
+          else {
+            await renderCategories();
+            show('Foto de colección actualizada.');
+          }
+        },
+      });
+      return;
+    }
+
+    if (target.closest('[data-cat-save]')) {
+      const nombre = card.querySelector<HTMLInputElement>('[data-cat-name]')?.value.trim() ?? '';
+      const orden = Number(card.querySelector<HTMLInputElement>('[data-cat-order]')?.value ?? 0);
+      const icono = sanitizeVitrinaIcon(card.querySelector<HTMLSelectElement>('[data-cat-icon]')?.value ?? '', slug);
+      const enlace = categoryHref(slug, pickerHref(card, `/catalogo/${slug}`));
+      const en_vitrina = card.querySelector<HTMLInputElement>('[data-cat-visible]')?.checked ?? true;
+      if (!nombre) {
+        show('El nombre de la colección no puede estar vacío.', true);
+        return;
+      }
+      const { error } = await supabase.from('categories').update({ nombre, orden, icono, enlace, en_vitrina }).eq('slug', slug);
+      show(error ? error.message : 'Colección de la vitrina guardada.', Boolean(error));
+      if (!error) await renderCategories();
+    }
+  });
+
+  await loadVitrinaCopy();
+  await renderCategories();
+</script>

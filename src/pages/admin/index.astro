@@ -1,0 +1,506 @@
+---
+import AuthLayout from '../../layouts/AuthLayout.astro';
+import { site, buildWhatsAppUrl, generalWhatsAppMessage } from '../../data/site';
+import { getSiteSettings } from '../../lib/site-settings';
+
+const settings = await getSiteSettings();
+const accessRequestHref = buildWhatsAppUrl(
+  generalWhatsAppMessage('Quiero solicitar acceso al panel privado.'),
+  settings.whatsappNumber,
+);
+---
+
+<AuthLayout title="Acceso privado">
+  <main class="login">
+    <img class="login__bg" src="/fondo-login.jpg" alt="" width="1920" height="1080" />
+    <div class="login__veil" aria-hidden="true"></div>
+
+    <section class="login__brand">
+      <img class="login__logo" src="/logo.png" alt={site.name} width="220" height="220" />
+      <p class="login__name">{site.name}</p>
+      <p class="login__tag">Relojes & Accesorios</p>
+      <h1 class="login__title">Acceso exclusivo</h1>
+      <p class="login__badge">Panel privado</p>
+
+      <ul class="login__points">
+        <li>
+          <span>24/7</span>
+          <small>Atención personalizada</small>
+        </li>
+        <li>
+          <span>Stock</span>
+          <small>Verificación inmediata</small>
+        </li>
+        <li>
+          <span>Premium</span>
+          <small>Gestión directa</small>
+        </li>
+      </ul>
+
+      <p class="login__foot">Más que accesorios, un estilo de vida</p>
+    </section>
+
+    <section class="login__aside">
+      <form class="login__card" data-login-form novalidate>
+        <h2>RBCompany</h2>
+        <p class="login__kicker">Inicio de sesión · Acceso privado</p>
+        <p class="login__lead">
+          Ingresa tus credenciales para acceder a tu panel o continuar con tu experiencia
+          personalizada.
+        </p>
+
+        <label class="login__field">
+          <span>Correo electrónico</span>
+          <span class="login__control">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+              <path d="M4 6.5h16v11H4z"></path>
+              <path d="M4.5 7l7.5 6 7.5-6" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+            <input
+              type="email"
+              name="email"
+              autocomplete="username"
+              placeholder="tu-correo@rbcompany.com"
+              required
+            />
+          </span>
+        </label>
+
+        <label class="login__field">
+          <span>Contraseña</span>
+          <span class="login__control">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+              <rect x="5" y="11" width="14" height="9" rx="1.5"></rect>
+              <path d="M8 11V8.2a4 4 0 018 0V11" stroke-linecap="round"></path>
+            </svg>
+            <input
+              type="password"
+              name="password"
+              autocomplete="current-password"
+              placeholder="Tu contraseña"
+              required
+              data-password
+            />
+            <button type="button" class="login__eye" data-toggle-password aria-label="Mostrar contraseña">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+                <path d="M2.5 12s3.5-7 9.5-7 9.5 7 9.5 7-3.5 7-9.5 7-9.5-7-9.5-7z"></path>
+                <circle cx="12" cy="12" r="2.4"></circle>
+              </svg>
+            </button>
+          </span>
+        </label>
+
+        <div class="login__row">
+          <label class="login__check">
+            <input type="checkbox" name="remember" checked />
+            Recordarme
+          </label>
+          <button type="button" class="login__link" data-forgot>¿Olvidaste tu contraseña?</button>
+        </div>
+
+        <p class="login__alert" data-login-alert hidden></p>
+
+        <button class="login__submit" type="submit" data-login-submit>
+          Iniciar sesión
+          <span aria-hidden="true">→</span>
+        </button>
+
+        <p class="login__help">
+          ¿No tienes acceso?
+          <a href={accessRequestHref} target="_blank" rel="noopener noreferrer">Solicítalo aquí</a>
+        </p>
+      </form>
+    </section>
+  </main>
+</AuthLayout>
+
+<style>
+  .login {
+    position: relative;
+    isolation: isolate;
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(22rem, 0.85fr);
+    min-height: 100dvh;
+    overflow: hidden;
+  }
+
+  .login__bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    object-fit: cover;
+    object-position: 28% center;
+  }
+
+  .login__veil {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background:
+      linear-gradient(90deg, rgb(5 5 5 / 0.42) 0%, rgb(5 5 5 / 0.22) 42%, rgb(5 5 5 / 0.55) 100%),
+      linear-gradient(180deg, rgb(5 5 5 / 0.18), transparent 30%, rgb(5 5 5 / 0.5));
+  }
+
+  .login__brand,
+  .login__aside {
+    position: relative;
+    z-index: 2;
+  }
+
+  .login__brand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: clamp(2rem, 6vw, 5rem);
+    color: var(--color-white);
+  }
+
+  .login__logo {
+    width: 9.5rem;
+    height: 9.5rem;
+    max-width: none;
+    object-fit: cover;
+    object-position: center 36%;
+    border-radius: 50%;
+    margin-bottom: 1.1rem;
+    filter: drop-shadow(0 12px 28px rgb(0 0 0 / 0.45));
+  }
+
+  .login__name {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: clamp(2.4rem, 4vw, 3.4rem);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--color-gold-bright);
+  }
+
+  .login__tag {
+    margin: 0.15rem 0 1.6rem;
+    font-size: 0.72rem;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--color-silver);
+  }
+
+  .login__title {
+    margin: 0 0 0.85rem;
+    font-size: clamp(2.6rem, 5vw, 4.2rem);
+    color: #fff;
+  }
+
+  .login__badge {
+    display: inline-flex;
+    width: fit-content;
+    margin: 0 0 2.2rem;
+    padding: 0.45rem 1rem;
+    border: 1px solid rgb(201 162 39 / 0.45);
+    border-radius: 999px;
+    font-size: 0.68rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--color-gold-bright);
+    background: rgb(0 0 0 / 0.28);
+  }
+
+  .login__points {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+    width: min(100%, 34rem);
+    padding-top: 1.2rem;
+    border-top: 1px solid rgb(201 162 39 / 0.28);
+  }
+
+  .login__points li {
+    display: grid;
+    gap: 0.25rem;
+    justify-items: center;
+  }
+
+  .login__points span {
+    font-family: var(--font-display);
+    font-size: 1.45rem;
+    color: var(--color-gold-bright);
+  }
+
+  .login__points small {
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-silver);
+  }
+
+  .login__foot {
+    margin-top: 2rem;
+    font-size: 0.68rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: rgb(232 197 71 / 0.72);
+  }
+
+  .login__aside {
+    display: grid;
+    place-items: center;
+    padding: clamp(1.25rem, 4vw, 3rem);
+  }
+
+  .login__card {
+    width: min(100%, 26.5rem);
+    padding: 2rem 1.85rem 1.7rem;
+    border-radius: 1.35rem;
+    background: #f6f1e8;
+    color: #2a2418;
+    box-shadow: 0 24px 64px rgb(0 0 0 / 0.35);
+  }
+
+  .login__card h2 {
+    margin: 0;
+    text-align: center;
+    font-size: 2.15rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #1c1812;
+  }
+
+  .login__kicker {
+    margin: 0.35rem 0 0.9rem;
+    text-align: center;
+    font-size: 0.68rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #8a7019;
+  }
+
+  .login__lead {
+    margin: 0 0 1.4rem;
+    text-align: center;
+    font-size: 0.92rem;
+    line-height: 1.55;
+    color: #6b6256;
+  }
+
+  .login__field {
+    display: grid;
+    gap: 0.4rem;
+    margin-bottom: 0.95rem;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: #3a3428;
+  }
+
+  .login__control {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0 0.85rem;
+    min-height: 3.05rem;
+    border: 1px solid #e0d6c6;
+    border-radius: 0.85rem;
+    background: #fffdf8;
+    color: #8a7019;
+  }
+
+  .login__control:focus-within {
+    border-color: var(--color-gold);
+    box-shadow: 0 0 0 3px rgb(201 162 39 / 0.16);
+  }
+
+  .login__control input {
+    width: 100%;
+    border: 0;
+    background: transparent;
+    color: #2a2418;
+    font: inherit;
+    outline: none;
+  }
+
+  .login__control input::placeholder {
+    color: #b3a794;
+  }
+
+  .login__eye {
+    display: grid;
+    place-items: center;
+    color: #8a8376;
+  }
+
+  .login__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin: 0.2rem 0 1rem;
+    font-size: 0.82rem;
+  }
+
+  .login__check {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: #3a3428;
+  }
+
+  .login__check input {
+    accent-color: var(--color-gold-deep);
+  }
+
+  .login__link,
+  .login__help a {
+    color: #8a7019;
+    font-weight: 500;
+  }
+
+  .login__alert {
+    margin: 0 0 0.85rem;
+    padding: 0.65rem 0.75rem;
+    border-radius: 0.6rem;
+    background: #f4e1e1;
+    color: #8a2f2f;
+    font-size: 0.84rem;
+  }
+
+  .login__alert.is-ok {
+    background: #e7efe4;
+    color: #2f5a32;
+  }
+
+  .login__submit {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.55rem;
+    width: 100%;
+    min-height: 3.1rem;
+    border-radius: 0.9rem;
+    background: #14110d;
+    color: #f6f1e8;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .login__submit:hover {
+    background: #1d1913;
+  }
+
+  .login__submit:disabled {
+    opacity: 0.7;
+  }
+
+  .login__help {
+    margin: 1rem 0 0;
+    text-align: center;
+    font-size: 0.84rem;
+    color: #6b6256;
+  }
+
+  @media (max-width: 900px) {
+    .login {
+      grid-template-columns: 1fr;
+    }
+
+    .login__bg {
+      object-position: center;
+    }
+
+    .login__brand {
+      padding-bottom: 0.5rem;
+    }
+
+    .login__aside {
+      align-items: start;
+      padding-top: 0.5rem;
+      padding-bottom: 2rem;
+    }
+  }
+
+  @media (max-width: 560px) {
+    .login__logo {
+      width: 7.2rem;
+      height: 7.2rem;
+    }
+
+    .login__points {
+      grid-template-columns: 1fr;
+      text-align: center;
+    }
+  }
+</style>
+
+<script>
+  import { getSupabase } from '../../lib/supabase';
+  import { authErrorMessage } from '../../lib/auth';
+
+  const form = document.querySelector<HTMLFormElement>('[data-login-form]');
+  const alertEl = document.querySelector<HTMLElement>('[data-login-alert]');
+  const submit = document.querySelector<HTMLButtonElement>('[data-login-submit]');
+  const passwordInput = document.querySelector<HTMLInputElement>('[data-password]');
+  const toggle = document.querySelector('[data-toggle-password]');
+  const forgot = document.querySelector('[data-forgot]');
+  const supabase = getSupabase();
+
+  const { data } = await supabase.auth.getSession();
+  if (data.session) {
+    window.location.replace('/admin/panel');
+  }
+
+  function showAlert(message: string, ok = false) {
+    if (!alertEl) return;
+    alertEl.hidden = false;
+    alertEl.textContent = message;
+    alertEl.classList.toggle('is-ok', ok);
+  }
+
+  toggle?.addEventListener('click', () => {
+    if (!passwordInput) return;
+    const hidden = passwordInput.type === 'password';
+    passwordInput.type = hidden ? 'text' : 'password';
+    toggle.setAttribute('aria-label', hidden ? 'Ocultar contraseña' : 'Mostrar contraseña');
+  });
+
+  forgot?.addEventListener('click', async () => {
+    const email = new FormData(form!).get('email')?.toString().trim() ?? '';
+    if (!email) {
+      showAlert('Escribe tu correo para enviarte el enlace de recuperación.');
+      return;
+    }
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/admin`,
+    });
+    if (error) {
+      showAlert(authErrorMessage(error));
+      return;
+    }
+    showAlert('Si el correo existe, te enviamos un enlace para restablecer la contraseña.', true);
+  });
+
+  form?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const payload = new FormData(form);
+    const email = payload.get('email')?.toString().trim() ?? '';
+    const password = payload.get('password')?.toString() ?? '';
+
+    if (!email || !password) {
+      showAlert('Completa correo y contraseña.');
+      return;
+    }
+
+    submit && (submit.disabled = true);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    submit && (submit.disabled = false);
+
+    if (error) {
+      showAlert(authErrorMessage(error));
+      return;
+    }
+
+    window.location.href = '/admin/panel';
+  });
+</script>

@@ -1,79 +1,58 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import BenefitIcon from '../components/BenefitIcon.astro';
 import WhatsAppButton from '../components/WhatsAppButton.astro';
 import { site, generalWhatsAppMessage } from '../data/site';
+import { formatAboutRichText, getAboutCopy, getAboutPillars } from '../lib/about';
+
+const about = await getAboutCopy();
+const pillars = await getAboutPillars();
+const paragraphs = [about.paragraph1, about.paragraph2, about.paragraph3].filter(Boolean);
 ---
 
 <BaseLayout
-  title="Quiénes somos"
-  description={`Conoce ${site.name}: boutique de relojería y accesorios masculinos con atención personalizada.`}
+  title={about.title}
+  description={about.description}
 >
   <section class="about">
     <div class="container about__grid">
       <aside class="about__media anim-fade-up">
         <div class="about__panel">
-          <img class="about__silk" src="/fondo-tela.png" alt="" width="900" height="1200" />
+          <img class="about__silk" src={about.imageUrl} alt="" width="900" height="1200" />
           <div class="about__crest">
-            <img src="/logo.png" alt={site.name} width="420" height="420" />
+            <img src={about.logoUrl} alt={site.name} width="420" height="420" />
           </div>
         </div>
       </aside>
 
       <div class="about__copy anim-fade-up-delay">
-        <p class="eyebrow">La casa</p>
-        <h1 class="about__title">Quiénes somos</h1>
+        <p class="eyebrow">{about.eyebrow}</p>
+        <h1 class="about__title">{about.title}</h1>
         <span class="about__rule" aria-hidden="true"></span>
 
-        <p>
-          <strong>RBCOMPANY</strong> es una boutique orientada al estilo masculino de alto nivel.
-          Nos enfocamos en relojes y accesorios seleccionados por su presencia, acabado y carácter.
-        </p>
-        <p>
-          No operamos como un ecommerce tradicional: el catálogo web te permite explorar las piezas
-          disponibles y, cuando encuentres la indicada, inicias una conversación directa por
-          WhatsApp con nuestro equipo.
-        </p>
-        <p>
-          Así confirmamos stock, resolvemos dudas de medidas o modelos y coordinamos la entrega con
-          la misma atención que esperarías en un mostrador físico.
-        </p>
+        {paragraphs.map((paragraph) => (
+          <p set:html={formatAboutRichText(paragraph)} />
+        ))}
 
-        <ul class="about__pillars">
-          <li>
-            <span class="about__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                <path d="M12 3.2L14.4 8l5.4.7-4 3.7.9 5.4L12 15.6 7.3 17.8l.9-5.4-4-3.7L9.6 8 12 3.2z" stroke-linejoin="round"></path>
-              </svg>
-            </span>
-            <h2>Curaduría</h2>
-            <p>Piezas con identidad, priorizando estética y calidad percibida.</p>
-          </li>
-          <li>
-            <span class="about__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                <circle cx="12" cy="8" r="3.1"></circle>
-                <path d="M6.2 19c.7-3.1 3-4.8 5.8-4.8s5.1 1.7 5.8 4.8" stroke-linecap="round"></path>
-              </svg>
-            </span>
-            <h2>Atención humana</h2>
-            <p>Asesoría real por WhatsApp, sin formularios fríos ni carritos abandonados.</p>
-          </li>
-          <li>
-            <span class="about__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                <path d="M12 3.2l7 2.2v5.4c0 4.2-2.8 7.4-7 8.8-4.2-1.4-7-4.6-7-8.8V5.4L12 3.2z"></path>
-                <path d="M9.2 12.1l1.9 1.9 3.8-4" stroke-linecap="round" stroke-linejoin="round"></path>
-              </svg>
-            </span>
-            <h2>Transparencia</h2>
-            <p>Código de producto, precio y disponibilidad visibles en cada ficha.</p>
-          </li>
-        </ul>
+        {pillars.length > 0 && (
+          <ul class="about__pillars">
+            {pillars.map((pillar) => (
+              <li>
+                <span class="about__icon" aria-hidden="true">
+                  <BenefitIcon icon={pillar.icon} />
+                </span>
+                <h2>{pillar.title}</h2>
+                <p>{pillar.text}</p>
+              </li>
+            ))}
+          </ul>
+        )}
 
         <WhatsAppButton
           class="about__cta"
           variant="outline"
-          message={generalWhatsAppMessage('Quisiera conocer más sobre RBCompany.')}
+          label={about.ctaLabel}
+          message={generalWhatsAppMessage(about.ctaContext)}
         />
       </div>
     </div>

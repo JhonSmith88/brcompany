@@ -2,23 +2,25 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import ProductCard from '../../components/ProductCard.astro';
 import Breadcrumbs from '../../components/Breadcrumbs.astro';
-import { categories, getCategoryBySlug } from '../../data/categories';
-import { getProductsByCategory } from '../../data/products';
+import { getCategoryBySlug, getCategories, getProductsByCategory } from '../../lib/catalog';
+import { getCatalogPageCopy } from '../../lib/catalog-page';
 
-export function getStaticPaths() {
+export async function getStaticPaths() {
+  const categories = await getCategories();
   return categories.map((category) => ({
     params: { category: category.slug },
   }));
 }
 
 const { category: categorySlug } = Astro.params;
-const category = getCategoryBySlug(categorySlug!);
+const category = await getCategoryBySlug(categorySlug!);
 
 if (!category) {
   return Astro.redirect('/catalogo');
 }
 
-const products = getProductsByCategory(category.slug);
+const products = await getProductsByCategory(category.slug);
+const catalog = await getCatalogPageCopy();
 ---
 
 <BaseLayout
@@ -33,11 +35,11 @@ const products = getProductsByCategory(category.slug);
       <Breadcrumbs
         items={[
           { label: 'Inicio', href: '/' },
-          { label: 'Catálogo', href: '/catalogo' },
+          { label: catalog.title, href: '/catalogo' },
           { label: category.nombre, href: `/catalogo/${category.slug}` },
         ]}
       />
-      <p class="eyebrow">Categoría</p>
+      <p class="eyebrow">{catalog.categoryEyebrow}</p>
       <h1 class="section-title">{category.nombre}</h1>
       <hr class="divider" />
       <p class="section-lead">{category.descripcion}</p>
@@ -48,7 +50,7 @@ const products = getProductsByCategory(category.slug);
     <div class="container">
       {
         products.length === 0 ? (
-          <p class="empty">Pronto añadiremos piezas a esta categoría.</p>
+          <p class="empty">{catalog.emptyCategory}</p>
         ) : (
           <>
             <div class="toolbar">
@@ -122,7 +124,7 @@ const products = getProductsByCategory(category.slug);
                 </svg>
               </button>
             </nav>
-            <p class="empty empty--filter" data-empty-filter hidden>No hay piezas con esos filtros.</p>
+            <p class="empty empty--filter" data-empty-filter hidden>{catalog.emptyFilter}</p>
           </>
         )
       }

@@ -1,0 +1,113 @@
+---
+import AdminHomeLayout from '../../../layouts/AdminHomeLayout.astro';
+---
+
+<AdminHomeLayout title="Marcas" lead="Estos nombres recorren la cinta bajo el hero. Desactívalos o quítalos si no quieres mostrarlos.">
+  <form class="admin-form" data-mark-add>
+    <div class="row-2">
+      <label>Nueva marca <input name="name" maxlength="48" required></label>
+      <div class="admin-actions" style="margin:0;align-items:end">
+        <button class="btn btn--outline" type="submit">Añadir</button>
+      </div>
+    </div>
+  </form>
+  <div class="admin-marks" data-marks-list></div>
+</AdminHomeLayout>
+
+<script>
+  import { requireAdminSession } from '../../../lib/admin';
+  import { showAdminAlert } from '../../../lib/admin-home';
+  import { defaultHomeMarks } from '../../../lib/home';
+  import { escapeHtml } from '../../../lib/media/ui';
+
+  const gate = await requireAdminSession();
+  if (!gate) throw new Error('redirect');
+  const { supabase } = gate;
+  const alertEl = document.querySelector('[data-admin-alert]');
+  const markForm = document.querySelector<HTMLFormElement>('[data-mark-add]');
+  const marksList = document.querySelector('[data-marks-list]');
+  const show = (message: string, error = false) => showAdminAlert(alertEl, message, error);
+
+  function markCard(row: { id: string; name: string; sort_order: number; active: boolean }) {
+    return `
+      <article data-mark-id="${row.id}">
+        <input type="text" value="${escapeHtml(row.name)}" maxlength="48" data-mark-name>
+        <input type="number" value="${row.sort_order}" data-mark-order>
+        <label class="admin-check"><input type="checkbox" data-mark-active ${row.active ? 'checked' : ''}> Visible</label>
+        <button type="button" data-mark-save>Guardar</button>
+        <button type="button" data-mark-delete>Quitar</button>
+      </article>
+    `;
+  }
+
+  async function renderMarks() {
+    const { data, error } = await supabase.from('home_marks').select('*').order('sort_order');
+    if (error) {
+      show('Falta la tabla home_marks. Corre supabase/dashboard.sql en el SQL Editor.', true);
+      return;
+    }
+    if (!data?.length) {
+      const seed = defaultHomeMarks.map((name, index) => ({
+        name,
+        sort_order: index,
+        active: true,
+      }));
+      const { data: inserted, error: insertError } = await supabase.from('home_marks').insert(seed).select();
+      if (insertError) {
+        show(insertError.message, true);
+        return;
+      }
+      if (marksList) marksList.innerHTML = (inserted ?? []).map((row) => markCard(row as never)).join('');
+      return;
+    }
+    if (marksList) marksList.innerHTML = data.map((row) => markCard(row as never)).join('');
+  }
+
+  markForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const input = markForm.elements.namedItem('name') as HTMLInputElement;
+    const name = input.value.trim();
+    if (!name) return;
+    const { count } = await supabase.from('home_marks').select('*', { count: 'exact', head: true });
+    const { error } = await supabase.from('home_marks').insert({
+      name,
+      sort_order: count ?? 0,
+      active: true,
+    });
+    if (error) show(error.message, true);
+    else {
+      input.value = '';
+      await renderMarks();
+      show('Marca añadida.');
+    }
+  });
+
+  marksList?.addEventListener('click', async (event) => {
+    const target = event.target as HTMLElement;
+    const card = target.closest<HTMLElement>('[data-mark-id]');
+    if (!card) return;
+    const id = card.dataset.markId!;
+
+    if (target.closest('[data-mark-save]')) {
+      const name = card.querySelector<HTMLInputElement>('[data-mark-name]')?.value.trim() ?? '';
+      const sort_order = Number(card.querySelector<HTMLInputElement>('[data-mark-order]')?.value ?? 0);
+      const active = card.querySelector<HTMLInputElement>('[data-mark-active]')?.checked ?? true;
+      if (!name) {
+        show('El nombre de la marca no puede estar vacío.', true);
+        return;
+      }
+      const { error } = await supabase.from('home_marks').update({ name, sort_order, active }).eq('id', id);
+      show(error ? error.message : 'Marca guardada.', Boolean(error));
+      if (!error) await renderMarks();
+      return;
+    }
+
+    if (target.closest('[data-mark-delete]')) {
+      const { error } = await supabase.from('home_marks').delete().eq('id', id);
+      if (error) show(error.message, true);
+      else await renderMarks();
+    }
+  });
+
+  await renderMarks();
+</script>

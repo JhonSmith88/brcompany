@@ -1,57 +1,59 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import WhatsAppButton from '../components/WhatsAppButton.astro';
-import { site, buildWhatsAppUrl, generalWhatsAppMessage } from '../data/site';
+import { buildWhatsAppUrl, generalWhatsAppMessage } from '../data/site';
+import { getContactPageCopy } from '../lib/contact-page';
+import { getSiteSettings } from '../lib/site-settings';
 
-const waUrl = buildWhatsAppUrl(generalWhatsAppMessage('Quiero hacer una consulta.'));
+const settings = await getSiteSettings();
+const contact = await getContactPageCopy();
+const waUrl = buildWhatsAppUrl(generalWhatsAppMessage(contact.whatsappContext), settings.whatsappNumber);
 ---
 
 <BaseLayout
-  title="Contacto"
-  description={`Contacta a ${site.name} por WhatsApp para pedidos, disponibilidad y asesoría.`}
+  title={contact.title}
+  description={contact.description}
 >
   <section class="page-hero">
     <div class="container anim-fade-up">
-      <p class="eyebrow">Atención</p>
-      <h1 class="section-title">Contacto</h1>
+      <p class="eyebrow">{contact.eyebrow}</p>
+      <h1 class="section-title">{contact.title}</h1>
       <hr class="divider" />
-      <p class="section-lead">
-        Todos los pedidos se gestionan por WhatsApp. Escríbenos y te respondemos con disponibilidad
-        y opciones de entrega.
-      </p>
+      <p class="section-lead">{contact.lead}</p>
     </div>
   </section>
 
   <section class="section section--tight">
     <div class="container contact">
       <article class="contact__panel anim-fade-up">
-        <h2>WhatsApp</h2>
-        <p class="contact__number">{site.whatsapp.display}</p>
-        <p>
-          Ideal para consultas de stock, medidas, comparación entre modelos y seguimiento de tu
-          pedido.
-        </p>
-        <WhatsAppButton message={generalWhatsAppMessage('Quiero hacer una consulta.')} variant="gold" />
+        <h2>{contact.whatsappTitle}</h2>
+        <p class="contact__number">{settings.whatsappDisplay}</p>
+        <p>{contact.whatsappText}</p>
+        <WhatsAppButton
+          message={generalWhatsAppMessage(contact.whatsappContext)}
+          label={contact.whatsappCta}
+          variant="gold"
+        />
       </article>
 
       <article class="contact__panel anim-fade-up-delay">
-        <h2>Correo y ubicación</h2>
+        <h2>{contact.infoTitle}</h2>
         <ul class="contact__list">
           <li>
-            <span>Email</span>
-            <a href={`mailto:${site.email}`}>{site.email}</a>
+            <span>{contact.emailLabel}</span>
+            <a href={`mailto:${settings.email}`}>{settings.email}</a>
           </li>
           <li>
-            <span>Ubicación</span>
-            <p>{site.location}</p>
+            <span>{contact.locationLabel}</span>
+            <p>{contact.location}</p>
           </li>
           <li>
-            <span>Horario orientativo</span>
-            <p>Lunes a sábado · 10:00 – 19:00</p>
+            <span>{contact.hoursLabel}</span>
+            <p>{contact.hours}</p>
           </li>
         </ul>
         <a class="btn btn--outline" href={waUrl} target="_blank" rel="noopener noreferrer">
-          Preferimos WhatsApp
+          {contact.infoCta}
         </a>
       </article>
     </div>

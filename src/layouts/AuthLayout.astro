@@ -1,0 +1,43 @@
+---
+import '@fontsource-variable/cormorant-garamond/wght.css';
+import '@fontsource/dm-sans/400.css';
+import '@fontsource/dm-sans/500.css';
+import '@fontsource/dm-sans/600.css';
+import '../styles/global.css';
+import { site } from '../data/site';
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const {
+  title = 'Acceso privado',
+  description = `Panel privado de ${site.name}.`,
+} = Astro.props;
+
+const pageTitle = `${title} · ${site.name}`;
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="description" content={description} />
+    <link rel="icon" type="image/png" href="/logo.png" />
+    <title>{pageTitle}</title>
+  </head>
+  <body class="auth-body">
+    <slot />
+  </body>
+</html>
+
+<style is:global>
+  body.auth-body {
+    min-height: 100dvh;
+    background: #050505;
+    background-image: none;
+  }
+</style>

@@ -93,7 +93,7 @@ export function cartTotal(): number {
   return read().reduce((sum, item) => sum + item.precioReal * item.qty, 0);
 }
 
-export function cartWhatsAppUrl(): string {
+export function cartWhatsAppUrl(number?: string): string {
   const items = read();
   const lines = [
     `Hola, quiero pedir estos productos de ${site.name}:`,
@@ -105,7 +105,7 @@ export function cartWhatsAppUrl(): string {
     '',
     `*Total: ${formatPrice(cartTotal())}*`,
   ];
-  return buildWhatsAppUrl(lines.join('\n'));
+  return buildWhatsAppUrl(lines.join('\n'), number);
 }
 
 export function openCart() {

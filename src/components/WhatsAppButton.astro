@@ -1,5 +1,6 @@
 ---
 import { buildWhatsAppUrl } from '../data/site';
+import { getSiteSettings } from '../lib/site-settings';
 
 interface Props {
   message: string;
@@ -15,7 +16,8 @@ const {
   variant = 'whatsapp',
 } = Astro.props;
 
-const href = buildWhatsAppUrl(message);
+const settings = await getSiteSettings();
+const href = buildWhatsAppUrl(message, settings.whatsappNumber);
 const btnClass = `btn btn--${variant} ${className}`.trim();
 ---
 

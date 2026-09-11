@@ -1,8 +1,10 @@
 ---
+import { getSiteSettings } from '../lib/site-settings';
 
+const settings = await getSiteSettings();
 ---
 
-<div class="cart" data-cart>
+<div class="cart" data-cart data-whatsapp-number={settings.whatsappNumber}>
   <button class="cart__overlay" type="button" data-cart-close tabindex="-1" aria-label="Cerrar bolsa"></button>
 
   <aside
@@ -359,7 +361,8 @@
     list.hidden = !hasItems;
     footer.hidden = !hasItems;
     totalEl.textContent = formatPrice(cartTotal());
-    waLink.href = hasItems ? cartWhatsAppUrl() : '#';
+    const whatsappNumber = root?.getAttribute('data-whatsapp-number') ?? undefined;
+    waLink.href = hasItems ? cartWhatsAppUrl(whatsappNumber) : '#';
 
     list.innerHTML = items
       .map((item) => {

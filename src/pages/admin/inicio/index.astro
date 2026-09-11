@@ -1,0 +1,18 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { homeAdminSections } from '../../../lib/admin-home';
+---
+
+<AdminLayout title="Inicio">
+  <p class="muted">Elige la sección del inicio que quieres editar.</p>
+  <div class="admin-section-grid">
+    {
+      homeAdminSections.map((section) => (
+        <a class="admin-section-card" href={section.href}>
+          <strong>{section.title}</strong>
+          <span>{section.text}</span>
+        </a>
+      ))
+    }
+  </div>
+</AdminLayout>

@@ -1,0 +1,210 @@
+---
+import AdminHomeLayout from '../../../layouts/AdminHomeLayout.astro';
+---
+
+<AdminHomeLayout title="Carrusel" lead="La tira bajo la pieza destacada. Añade productos desde el catálogo, arrástralos y pulsa Guardar orden para confirmar.">
+  <div class="admin-actions">
+    <button class="btn btn--outline" type="button" data-carousel-open>Añadir producto</button>
+    <button class="btn btn--gold" type="button" data-carousel-save disabled>Guardar orden</button>
+  </div>
+  <div class="admin-carousel" data-carousel-list></div>
+</AdminHomeLayout>
+
+<script>
+  import { requireAdminSession } from '../../../lib/admin';
+  import { showAdminAlert } from '../../../lib/admin-home';
+  import { openProductPicker } from '../../../lib/admin-product-picker';
+  import { escapeHtml } from '../../../lib/media/ui';
+
+  const gate = await requireAdminSession();
+  if (!gate) throw new Error('redirect');
+  const { supabase } = gate;
+  const alertEl = document.querySelector('[data-admin-alert]');
+  const openButton = document.querySelector<HTMLButtonElement>('[data-carousel-open]');
+  const carouselList = document.querySelector('[data-carousel-list]');
+  const saveButton = document.querySelector<HTMLButtonElement>('[data-carousel-save]');
+  const show = (message: string, error = false) => showAdminAlert(alertEl, message, error);
+
+  type CatalogProduct = { codigo: string; nombre: string; destacado: boolean };
+  type ProductImage = { product_codigo: string; thumb: string; is_principal: boolean };
+
+  let products: CatalogProduct[] = [];
+  let images: ProductImage[] = [];
+  let savedIds = '';
+
+  function currentIds() {
+    if (!carouselList) return [];
+    return [...carouselList.querySelectorAll<HTMLElement>('[data-carousel-id]')].map((item) => item.dataset.carouselId!);
+  }
+
+  function currentCodigos() {
+    if (!carouselList) return [];
+    return [...carouselList.querySelectorAll<HTMLElement>('[data-carousel-codigo]')].map((item) => item.dataset.carouselCodigo!);
+  }
+
+  function markSaved() {
+    savedIds = currentIds().join(',');
+    if (saveButton) saveButton.disabled = true;
+  }
+
+  function markDirtyIfNeeded() {
+    if (saveButton) saveButton.disabled = currentIds().join(',') === savedIds;
+  }
+
+  function availableProducts() {
+    const taken = new Set(currentCodigos());
+    return products
+      .filter((row) => !taken.has(row.codigo))
+      .map((row) => ({
+        codigo: row.codigo,
+        nombre: row.nombre,
+        thumb: thumbOf(row.codigo),
+      }));
+  }
+
+  function thumbOf(codigo: string) {
+    const list = images.filter((row) => row.product_codigo === codigo);
+    return list.find((row) => row.is_principal)?.thumb ?? list[0]?.thumb ?? '';
+  }
+
+  function cardHtml(id: string, codigo: string) {
+    const product = products.find((row) => row.codigo === codigo);
+    const thumb = thumbOf(codigo);
+    return `
+      <article draggable="true" data-carousel-id="${escapeHtml(id)}" data-carousel-codigo="${escapeHtml(codigo)}">
+        <span class="admin-carousel__handle" aria-hidden="true"></span>
+        ${thumb ? `<img src="${escapeHtml(thumb)}" alt="" draggable="false">` : '<div class="admin-carousel__empty" aria-hidden="true"></div>'}
+        <p>${escapeHtml(product?.nombre ?? codigo)} <span>${escapeHtml(codigo)}</span></p>
+        <button type="button" data-carousel-delete>Quitar</button>
+      </article>
+    `;
+  }
+
+  async function persistOrder(ids: string[]) {
+    const results = await Promise.all(
+      ids.map((id, index) => supabase.from('home_carousel').update({ sort_order: index }).eq('id', id)),
+    );
+    return results.find((result) => result.error)?.error ?? null;
+  }
+
+  async function renderCarousel() {
+    const [productRows, imagesResult, carouselResult] = await Promise.all([
+      supabase.from('products').select('codigo, nombre, destacado').order('nombre'),
+      supabase.from('product_images').select('product_codigo, thumb, is_principal, sort_order'),
+      supabase.from('home_carousel').select('*').order('sort_order'),
+    ]);
+    const { data, error } = carouselResult;
+    if (error) {
+      show('Falta la tabla home_carousel. Corre supabase/home-carousel.sql en el SQL Editor.', true);
+      return;
+    }
+    products = (productRows.data ?? []) as CatalogProduct[];
+    images = (imagesResult.data ?? []) as ProductImage[];
+    if (carouselList) {
+      carouselList.innerHTML = (data ?? []).map((row) => cardHtml(row.id, row.product_codigo)).join('');
+    }
+    markSaved();
+  }
+
+  async function addProduct(productCodigo: string) {
+    const { data, error } = await supabase
+      .from('home_carousel')
+      .insert({
+        product_codigo: productCodigo,
+        sort_order: currentIds().length,
+      })
+      .select('id')
+      .single();
+    if (error || !data) {
+      show(error?.message.includes('duplicate') ? 'Ese producto ya está en el carrusel.' : (error?.message ?? 'No se pudo añadir.'), true);
+      return;
+    }
+    carouselList?.insertAdjacentHTML('beforeend', cardHtml(data.id, productCodigo));
+    savedIds = savedIds ? `${savedIds},${data.id}` : data.id;
+    markDirtyIfNeeded();
+    show('Producto añadido al carrusel.');
+  }
+
+  openButton?.addEventListener('click', () => {
+    const available = availableProducts();
+    if (!available.length) {
+      show('Todos los productos ya están en el carrusel.');
+      return;
+    }
+    openProductPicker({
+      title: 'Añadir al carrusel',
+      confirmLabel: 'Añadir',
+      products: available,
+      onSelect: (codigo) => {
+        void addProduct(codigo);
+      },
+    });
+  });
+
+  carouselList?.addEventListener('click', async (event) => {
+    const target = event.target as HTMLElement;
+    const card = target.closest<HTMLElement>('[data-carousel-id]');
+    if (!card || !target.closest('[data-carousel-delete]')) return;
+    const id = card.dataset.carouselId!;
+    const { error } = await supabase.from('home_carousel').delete().eq('id', id);
+    if (error) {
+      show(error.message, true);
+      return;
+    }
+    card.remove();
+    savedIds = savedIds.split(',').filter((item) => item && item !== id).join(',');
+    markDirtyIfNeeded();
+    show('Producto quitado del carrusel.');
+  });
+
+  saveButton?.addEventListener('click', async () => {
+    const ids = currentIds();
+    if (ids.join(',') === savedIds) return;
+    saveButton.disabled = true;
+    const error = await persistOrder(ids);
+    if (error) {
+      show(error.message, true);
+      markDirtyIfNeeded();
+      return;
+    }
+    markSaved();
+    show('Orden guardado.');
+  });
+
+  let dragging: HTMLElement | null = null;
+
+  carouselList?.addEventListener('dragstart', (event) => {
+    const target = event.target as HTMLElement;
+    const card = target.closest<HTMLElement>('[data-carousel-id]');
+    if (!card || target.closest('[data-carousel-delete]') || !event.dataTransfer) {
+      event.preventDefault();
+      return;
+    }
+    dragging = card;
+    card.classList.add('is-dragging');
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', card.dataset.carouselId ?? '');
+  });
+
+  carouselList?.addEventListener('dragend', () => {
+    dragging?.classList.remove('is-dragging');
+    dragging = null;
+    markDirtyIfNeeded();
+  });
+
+  carouselList?.addEventListener('dragover', (event) => {
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+    const over = (event.target as HTMLElement).closest<HTMLElement>('[data-carousel-id]');
+    if (!dragging || !over || over === dragging || !carouselList) return;
+    const rect = over.getBoundingClientRect();
+    const before = event.clientY < rect.top + rect.height / 2;
+    carouselList.insertBefore(dragging, before ? over : over.nextSibling);
+  });
+
+  carouselList?.addEventListener('drop', (event) => {
+    event.preventDefault();
+  });
+
+  await renderCarousel();
+</script>
