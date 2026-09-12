@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { buildWhatsAppUrl } from '../data/site';
+import { buildWhatsAppUrl, site } from '../data/site';
 
 export const saleStatuses = [
   { value: 'pendiente', label: 'Pendiente' },
@@ -66,7 +66,7 @@ export function paymentStateLabel(amountPaid: number, total: number) {
 export function customerWhatsAppUrl(phone: string, message = '') {
   const number = sanitizePhone(phone).replace(/^\+/, '');
   if (!number) return '';
-  return buildWhatsAppUrl(message || 'Hola, te escribo desde RBCompany.', number);
+  return buildWhatsAppUrl(message || `Hola, te escribo desde ${site.name}.`, number);
 }
 
 export function startOfWeek(now = new Date()) {

@@ -16,7 +16,7 @@ export const defaultCatalogPageCopy: CatalogPageCopy = {
   eyebrow: 'Colecciones',
   title: 'Catálogo',
   lead: 'Explora nuestras categorías de relojes y accesorios seleccionados para complementar tu estilo con distinción.',
-  description: 'Explora las categorías de relojes y accesorios masculinos de RBCompany.',
+  description: 'Explora las categorías de relojes y accesorios masculinos de BRCompany.',
   categoryEyebrow: 'Categoría',
   emptyCategory: 'Pronto añadiremos piezas a esta categoría.',
   emptyFilter: 'No hay piezas con esos filtros.',

@@ -6,7 +6,7 @@ create table if not exists public.catalog_page (
   eyebrow text not null default 'Colecciones',
   title text not null default 'Catálogo',
   lead text not null default 'Explora nuestras categorías de relojes y accesorios seleccionados para complementar tu estilo con distinción.',
-  description text not null default 'Explora las categorías de relojes y accesorios masculinos de RBCompany.',
+  description text not null default 'Explora las categorías de relojes y accesorios masculinos de BRCompany.',
   category_eyebrow text not null default 'Categoría',
   empty_category text not null default 'Pronto añadiremos piezas a esta categoría.',
   empty_filter text not null default 'No hay piezas con esos filtros.',

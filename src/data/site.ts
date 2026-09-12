@@ -1,5 +1,5 @@
 export const site = {
-  name: 'RBCompany',
+  name: 'BRCompany',
   tagline: 'Watches & Boutique',
   description:
     'Boutique de relojería de lujo y accesorios para hombres. Catálogo exclusivo con atención personalizada por WhatsApp.',
@@ -7,7 +7,7 @@ export const site = {
     number: '593988743194',
     display: '+593 98 874 3194',
   },
-  email: 'contacto@rbcompany.com',
+  email: 'contacto@brcompany.com',
   location: 'Ecuador',
   social: {
     instagram: '#',

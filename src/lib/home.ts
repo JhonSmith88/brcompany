@@ -44,7 +44,7 @@ export type HeroCopy = {
 
 export const defaultHeroCopy: HeroCopy = {
   eyebrow: 'Estilo, precisión, distinción.',
-  title: 'RBCompany',
+  title: 'BRCompany',
   lead: 'Relojes y accesorios masculinos. Consulta el catálogo y pide por WhatsApp.',
   ctaLabel: 'Ver catálogo',
   ctaHref: '/catalogo',

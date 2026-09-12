@@ -5,7 +5,7 @@ create table if not exists public.site_settings (
   id text primary key default 'site',
   whatsapp_number text not null default '593988743194',
   whatsapp_display text not null default '+593 98 874 3194',
-  email text not null default 'contacto@rbcompany.com',
+  email text not null default 'contacto@brcompany.com',
   instagram_url text not null default '',
   facebook_url text not null default '',
   updated_at timestamptz not null default now()

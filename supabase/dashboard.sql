@@ -141,7 +141,7 @@ create policy "Auth delete site media"
 create table if not exists public.home_hero (
   id text primary key default 'home',
   eyebrow text not null default 'Estilo, precisión, distinción.',
-  title text not null default 'RBCompany',
+  title text not null default 'BRCompany',
   lead text not null default 'Relojes y accesorios masculinos. Consulta el catálogo y pide por WhatsApp.',
   cta_label text not null default 'Ver catálogo',
   cta_href text not null default '/catalogo',
@@ -469,7 +469,7 @@ create table if not exists public.site_settings (
   id text primary key default 'site',
   whatsapp_number text not null default '593988743194',
   whatsapp_display text not null default '+593 98 874 3194',
-  email text not null default 'contacto@rbcompany.com',
+  email text not null default 'contacto@brcompany.com',
   instagram_url text not null default '',
   facebook_url text not null default '',
   updated_at timestamptz not null default now()
@@ -510,8 +510,8 @@ create table if not exists public.about_page (
   image_url text not null default '/fondo-tela.png',
   logo_url text not null default '/logo.png',
   cta_label text not null default 'Pedir por WhatsApp',
-  cta_context text not null default 'Quisiera conocer más sobre RBCompany.',
-  description text not null default 'Conoce RBCompany: boutique de relojería y accesorios masculinos con atención personalizada.',
+  cta_context text not null default 'Quisiera conocer más sobre BRCompany.',
+  description text not null default 'Conoce BRCompany: boutique de relojería y accesorios masculinos con atención personalizada.',
   updated_at timestamptz not null default now()
 );
 
@@ -587,7 +587,7 @@ create table if not exists public.catalog_page (
   eyebrow text not null default 'Colecciones',
   title text not null default 'Catálogo',
   lead text not null default 'Explora nuestras categorías de relojes y accesorios seleccionados para complementar tu estilo con distinción.',
-  description text not null default 'Explora las categorías de relojes y accesorios masculinos de RBCompany.',
+  description text not null default 'Explora las categorías de relojes y accesorios masculinos de BRCompany.',
   category_eyebrow text not null default 'Categoría',
   empty_category text not null default 'Pronto añadiremos piezas a esta categoría.',
   empty_filter text not null default 'No hay piezas con esos filtros.',
@@ -626,7 +626,7 @@ create table if not exists public.contact_page (
   eyebrow text not null default 'Atención',
   title text not null default 'Contacto',
   lead text not null default 'Todos los pedidos se gestionan por WhatsApp. Escríbenos y te respondemos con disponibilidad y opciones de entrega.',
-  description text not null default 'Contacta a RBCompany por WhatsApp para pedidos, disponibilidad y asesoría.',
+  description text not null default 'Contacta a BRCompany por WhatsApp para pedidos, disponibilidad y asesoría.',
   whatsapp_title text not null default 'WhatsApp',
   whatsapp_text text not null default 'Ideal para consultas de stock, medidas, comparación entre modelos y seguimiento de tu pedido.',
   whatsapp_cta text not null default 'Pedir por WhatsApp',

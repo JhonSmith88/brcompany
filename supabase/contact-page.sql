@@ -6,7 +6,7 @@ create table if not exists public.contact_page (
   eyebrow text not null default 'Atención',
   title text not null default 'Contacto',
   lead text not null default 'Todos los pedidos se gestionan por WhatsApp. Escríbenos y te respondemos con disponibilidad y opciones de entrega.',
-  description text not null default 'Contacta a RBCompany por WhatsApp para pedidos, disponibilidad y asesoría.',
+  description text not null default 'Contacta a BRCompany por WhatsApp para pedidos, disponibilidad y asesoría.',
   whatsapp_title text not null default 'WhatsApp',
   whatsapp_text text not null default 'Ideal para consultas de stock, medidas, comparación entre modelos y seguimiento de tu pedido.',
   whatsapp_cta text not null default 'Pedir por WhatsApp',

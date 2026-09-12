@@ -25,7 +25,7 @@ export const defaultAboutCopy: AboutCopy = {
   eyebrow: 'La casa',
   title: 'Quiénes somos',
   paragraph1:
-    '**RBCOMPANY** es una boutique orientada al estilo masculino de alto nivel. Nos enfocamos en relojes y accesorios seleccionados por su presencia, acabado y carácter.',
+    '**BRCOMPANY** es una boutique orientada al estilo masculino de alto nivel. Nos enfocamos en relojes y accesorios seleccionados por su presencia, acabado y carácter.',
   paragraph2:
     'No operamos como un ecommerce tradicional: el catálogo web te permite explorar las piezas disponibles y, cuando encuentres la indicada, inicias una conversación directa por WhatsApp con nuestro equipo.',
   paragraph3:

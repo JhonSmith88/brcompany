@@ -11,8 +11,8 @@ create table if not exists public.about_page (
   image_url text not null default '/fondo-tela.png',
   logo_url text not null default '/logo.png',
   cta_label text not null default 'Pedir por WhatsApp',
-  cta_context text not null default 'Quisiera conocer más sobre RBCompany.',
-  description text not null default 'Conoce RBCompany: boutique de relojería y accesorios masculinos con atención personalizada.',
+  cta_context text not null default 'Quisiera conocer más sobre BRCompany.',
+  description text not null default 'Conoce BRCompany: boutique de relojería y accesorios masculinos con atención personalizada.',
   updated_at timestamptz not null default now()
 );
 
@@ -86,7 +86,7 @@ grant all on table public.about_page, public.about_pillars to service_role;
 insert into public.about_page (id, paragraph_1, paragraph_2, paragraph_3)
 values (
   'about',
-  '**RBCOMPANY** es una boutique orientada al estilo masculino de alto nivel. Nos enfocamos en relojes y accesorios seleccionados por su presencia, acabado y carácter.',
+  '**BRCOMPANY** es una boutique orientada al estilo masculino de alto nivel. Nos enfocamos en relojes y accesorios seleccionados por su presencia, acabado y carácter.',
   'No operamos como un ecommerce tradicional: el catálogo web te permite explorar las piezas disponibles y, cuando encuentres la indicada, inicias una conversación directa por WhatsApp con nuestro equipo.',
   'Así confirmamos stock, resolvemos dudas de medidas o modelos y coordinamos la entrega con la misma atención que esperarías en un mostrador físico.'
 )

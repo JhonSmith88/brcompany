@@ -1,4 +1,4 @@
-# RBCompany
+# BRCompany
 
 Catálogo web elegante de relojería y boutique masculina. Los pedidos se atienden por WhatsApp (sin pasarela de pago).
 
