@@ -1,0 +1,89 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+---
+
+<AdminLayout title="Clientes">
+  <p class="muted">Agenda de WhatsApp: datos de contacto y notas. El historial de compras está en cada ficha.</p>
+  <p class="admin-alert" data-admin-alert hidden></p>
+  <div class="admin-actions">
+    <a class="btn btn--gold" href="/admin/clientes/editar">Nuevo cliente</a>
+  </div>
+  <form class="admin-filters" data-customer-filters>
+    <label>Buscar <input type="search" name="q" placeholder="Nombre, teléfono o nota"></label>
+  </form>
+  <p class="muted" data-customer-count></p>
+  <div style="overflow:auto">
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>Nombre</th>
+          <th>WhatsApp</th>
+          <th>Notas</th>
+          <th>Compras</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody data-customer-rows></tbody>
+    </table>
+  </div>
+</AdminLayout>
+
+<script>
+  import { requireAdminSession } from '../../../lib/admin';
+  import { escapeHtml } from '../../../lib/media/ui';
+
+  const gate = await requireAdminSession();
+  if (!gate) throw new Error('redirect');
+  const { supabase } = gate;
+  const alertEl = document.querySelector('[data-admin-alert]');
+  const body = document.querySelector('[data-customer-rows]');
+  const countEl = document.querySelector('[data-customer-count]');
+  const filters = document.querySelector<HTMLFormElement>('[data-customer-filters]');
+
+  const [{ data: customers, error }, { data: sales }] = await Promise.all([
+    supabase.from('customers').select('*').order('name'),
+    supabase.from('sales').select('customer_id, status'),
+  ]);
+
+  if (error && alertEl) {
+    alertEl.hidden = false;
+    alertEl.classList.add('is-error');
+    alertEl.textContent = error.message.includes('customers')
+      ? 'Falta la tabla customers. Corre supabase/sales.sql en el SQL Editor.'
+      : error.message;
+  }
+
+  const soldCount = new Map<string, number>();
+  for (const row of sales ?? []) {
+    if (row.status !== 'vendido') continue;
+    soldCount.set(row.customer_id, (soldCount.get(row.customer_id) ?? 0) + 1);
+  }
+
+  function render() {
+    const q = String((filters ? new FormData(filters) : new FormData()).get('q') ?? '').trim().toLowerCase();
+    const rows = (customers ?? []).filter((row) => {
+      if (!q) return true;
+      return `${row.name} ${row.phone} ${row.notes}`.toLowerCase().includes(q);
+    });
+    if (countEl) countEl.textContent = `${rows.length} de ${(customers ?? []).length} clientes`;
+    if (!body) return;
+    if (!rows.length) {
+      body.innerHTML = '<tr><td colspan="5">No hay clientes con esa búsqueda.</td></tr>';
+      return;
+    }
+    body.innerHTML = rows
+      .map((row) => `
+        <tr>
+          <td>${escapeHtml(row.name)}</td>
+          <td>${escapeHtml(row.phone || '—')}</td>
+          <td>${escapeHtml((row.notes || '').slice(0, 80))}${(row.notes || '').length > 80 ? '…' : ''}</td>
+          <td>${soldCount.get(row.id) ?? 0}</td>
+          <td><a href="/admin/clientes/editar?id=${encodeURIComponent(row.id)}">Editar</a></td>
+        </tr>
+      `)
+      .join('');
+  }
+
+  filters?.addEventListener('input', render);
+  render();
+</script>

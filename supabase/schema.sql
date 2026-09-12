@@ -500,6 +500,62 @@ alter table public.categories add column if not exists en_vitrina boolean not nu
 alter table public.categories add column if not exists icono text not null default 'watch';
 alter table public.categories add column if not exists enlace text;
 
+create table if not exists public.customers (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  phone text not null default '',
+  notes text not null default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.sales (
+  id uuid primary key default gen_random_uuid(),
+  customer_id uuid not null references public.customers (id) on delete restrict,
+  status text not null default 'pendiente',
+  note text not null default '',
+  stock_applied boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint sales_status_check check (status in ('pendiente', 'vendido', 'cancelado'))
+);
+
+create table if not exists public.sale_items (
+  id uuid primary key default gen_random_uuid(),
+  sale_id uuid not null references public.sales (id) on delete cascade,
+  product_codigo text not null references public.products (codigo) on delete restrict,
+  qty integer not null default 1,
+  unit_price integer not null default 0,
+  product_nombre text not null default '',
+  constraint sale_items_qty_check check (qty > 0),
+  constraint sale_items_price_check check (unit_price >= 0)
+);
+
+alter table public.sales add column if not exists city text not null default '';
+alter table public.sales add column if not exists shipping text not null default '';
+alter table public.sales add column if not exists payment_method text not null default '';
+alter table public.sales add column if not exists amount_paid integer not null default 0;
+alter table public.sales add column if not exists delivery_date date;
+alter table public.sales add column if not exists chat_url text not null default '';
+
+create unique index if not exists customers_phone_unique_idx
+  on public.customers (phone)
+  where phone <> '';
+
+create index if not exists customers_phone_idx on public.customers (phone);
+create index if not exists customers_name_idx on public.customers (name);
+create index if not exists sales_customer_id_idx on public.sales (customer_id);
+create index if not exists sales_created_at_idx on public.sales (created_at desc);
+create index if not exists sales_status_idx on public.sales (status);
+create index if not exists sale_items_sale_id_idx on public.sale_items (sale_id);
+create index if not exists sale_items_product_codigo_idx on public.sale_items (product_codigo);
+
+alter table public.customers enable row level security;
+alter table public.sales enable row level security;
+alter table public.sale_items enable row level security;
+
+grant all on table public.customers, public.sales, public.sale_items to service_role;
+
 drop policy if exists "Public read site media" on storage.objects;
 create policy "Public read site media"
   on storage.objects for select

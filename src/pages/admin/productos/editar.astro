@@ -49,6 +49,10 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
     </div>
     <div class="admin-gallery" data-gallery></div>
   </section>
+  <section data-sold-wrap hidden>
+    <h2 class="section-title" style="font-size: 1.5rem; margin-top: 2rem">Vendidos a…</h2>
+    <div class="admin-history" data-sold-list></div>
+  </section>
 </AdminLayout>
 
 <script>
@@ -68,6 +72,8 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
   const deleteBtn = document.querySelector<HTMLButtonElement>('[data-delete]');
   const galleryWrap = document.querySelector('[data-gallery-wrap]');
   const gallery = document.querySelector('[data-gallery]');
+  const soldWrap = document.querySelector('[data-sold-wrap]');
+  const soldList = document.querySelector('[data-sold-list]');
   const select = form.querySelector<HTMLSelectElement>('[name="categoria_slug"]')!;
 
   const show = (message: string, error = false) => {
@@ -81,6 +87,8 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
   select.innerHTML = (categories ?? [])
     .map((row) => `<option value="${escapeHtml(row.slug)}">${escapeHtml(row.nombre)}</option>`)
     .join('');
+  const presetCategory = params.get('categoria') ?? '';
+  if (!existingCodigo && presetCategory) select.value = presetCategory;
 
   const codigoInput = form.querySelector<HTMLInputElement>('[name="codigo"]')!;
   const slugInput = form.querySelector<HTMLInputElement>('[name="slug"]')!;
@@ -138,6 +146,59 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
     featuredInput.checked = Boolean(data.destacado);
     renderSpecs(sanitizeProductSpecs(data.caracteristicas));
     await renderGallery();
+    await renderSoldHistory();
+  }
+
+  async function renderSoldHistory() {
+    if (!existingCodigo || !soldWrap || !soldList) return;
+    const { data, error } = await supabase
+      .from('sale_items')
+      .select('qty, unit_price, sales!inner(id, status, created_at, customers(name))')
+      .eq('product_codigo', existingCodigo)
+      .eq('sales.status', 'vendido');
+    if (error) {
+      soldWrap.hidden = false;
+      soldList.innerHTML = `<p class="muted">${escapeHtml(error.message)}</p>`;
+      return;
+    }
+    type SoldRow = {
+      qty: number;
+      unit_price: number;
+      sales?:
+        | { id: string; created_at: string; customers?: { name: string } | { name: string }[] | null }
+        | { id: string; created_at: string; customers?: { name: string } | { name: string }[] | null }[]
+        | null;
+    };
+    const rows = ((data ?? []) as SoldRow[])
+      .map((row) => {
+        const sale = Array.isArray(row.sales) ? row.sales[0] : row.sales;
+        const customer = sale?.customers;
+        const name = (Array.isArray(customer) ? customer[0] : customer)?.name ?? 'Cliente';
+        return {
+          qty: row.qty,
+          saleId: sale?.id ?? '',
+          createdAt: sale?.created_at ?? '',
+          name,
+        };
+      })
+      .filter((row) => row.saleId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    soldWrap.hidden = false;
+    if (!rows.length) {
+      soldList.innerHTML = '<p class="muted">Aún no hay ventas de esta pieza.</p>';
+      return;
+    }
+    soldList.innerHTML = rows
+      .map((row) => {
+        const date = row.createdAt ? new Date(row.createdAt).toLocaleDateString('es-EC') : '';
+        return `
+          <article>
+            <p>${escapeHtml(row.name)} <span>${escapeHtml(date)} · ${row.qty} ${row.qty === 1 ? 'unidad' : 'unidades'}</span></p>
+            <a href="/admin/ventas/editar?id=${encodeURIComponent(row.saleId)}">Ver venta</a>
+          </article>
+        `;
+      })
+      .join('');
   }
 
   function specIconSelect(selected: string) {

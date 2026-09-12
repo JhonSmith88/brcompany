@@ -1,0 +1,390 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+---
+
+<AdminLayout title="Venta">
+  <p class="muted"><a href="/admin/ventas">← Ventas</a></p>
+  <p class="admin-alert" data-admin-alert hidden></p>
+  <form class="admin-form" data-sale-form>
+    <h2 class="section-title" style="font-size: 1.35rem; margin: 0">Cliente</h2>
+    <div class="admin-customer-box">
+      <p data-customer-label>Ninguno seleccionado. Busca uno o crea uno nuevo.</p>
+      <input type="hidden" name="customer_id">
+      <div class="admin-actions" style="margin:0">
+        <button type="button" class="btn btn--outline" data-pick-customer>Buscar cliente</button>
+        <button type="button" class="btn btn--outline" data-clear-customer hidden>Usar otro</button>
+        <a class="btn btn--outline" data-wa-customer hidden target="_blank" rel="noopener">Escribir por WhatsApp</a>
+      </div>
+    </div>
+    <div class="row-2" data-new-customer>
+      <label>Nombre <input name="customer_name"></label>
+      <label>WhatsApp <input name="customer_phone" placeholder="593..."></label>
+    </div>
+    <label>Nota de esta venta <textarea name="note" placeholder="Acuerdo, envío, talla..."></textarea></label>
+    <label>Estado
+      <select name="status">
+        <option value="pendiente">Pendiente</option>
+        <option value="vendido">Vendido</option>
+        <option value="cancelado">Cancelado</option>
+      </select>
+    </label>
+
+    <h2 class="section-title" style="font-size: 1.35rem; margin: 0.8rem 0 0">Cierre</h2>
+    <div class="row-2">
+      <label>Ciudad <input name="city"></label>
+      <label>Envío
+        <select name="shipping">
+          <option value="">Sin indicar</option>
+          <option value="retiro">Retiro</option>
+          <option value="envio">Envío</option>
+        </select>
+      </label>
+    </div>
+    <div class="row-2">
+      <label>Pago
+        <select name="payment_method">
+          <option value="">Sin indicar</option>
+          <option value="transferencia">Transferencia</option>
+          <option value="efectivo">Efectivo</option>
+          <option value="deposito">Depósito</option>
+        </select>
+      </label>
+      <label>Monto cobrado <input name="amount_paid" type="number" min="0" value="0"></label>
+    </div>
+    <div class="row-2">
+      <label>Fecha de entrega <input name="delivery_date" type="date"></label>
+      <label>Enlace del chat <input name="chat_url" type="text" placeholder="https://wa.me/..."></label>
+    </div>
+    <p class="muted" data-payment-hint>Pago: por cobrar</p>
+
+    <h2 class="section-title" style="font-size: 1.35rem; margin: 0.8rem 0 0">Piezas</h2>
+    <div class="admin-actions" style="margin:0">
+      <button type="button" class="btn btn--outline" data-add-item>Añadir producto</button>
+    </div>
+    <div class="admin-sale-items" data-item-list></div>
+    <p class="muted" data-sale-total>Total: $0</p>
+
+    <div class="admin-actions">
+      <button class="btn btn--gold" type="submit">Guardar venta</button>
+      <button class="btn btn--outline" type="button" data-delete hidden>Eliminar</button>
+    </div>
+  </form>
+</AdminLayout>
+
+<script>
+  import { requireAdminSession } from '../../../lib/admin';
+  import { openProductPicker } from '../../../lib/admin-product-picker';
+  import { openCustomerPicker } from '../../../lib/admin-customer-picker';
+  import {
+    customerWhatsAppUrl,
+    paymentMethods,
+    paymentStateLabel,
+    reuseOrCreateCustomer,
+    saleTotal,
+    sanitizePhone,
+    shippingOptions,
+    syncSaleStock,
+    type SaleItemInput,
+    type SaleStatus,
+  } from '../../../lib/admin-sales';
+  import { formatPrice } from '../../../data/site';
+  import { escapeHtml } from '../../../lib/media/ui';
+
+  const gate = await requireAdminSession();
+  if (!gate) throw new Error('redirect');
+  const { supabase } = gate;
+  const params = new URLSearchParams(window.location.search);
+  const existingId = params.get('id');
+  const presetCustomer = params.get('cliente') ?? '';
+  const form = document.querySelector<HTMLFormElement>('[data-sale-form]')!;
+  const alertEl = document.querySelector('[data-admin-alert]');
+  const itemList = document.querySelector('[data-item-list]');
+  const totalEl = document.querySelector('[data-sale-total]');
+  const deleteBtn = document.querySelector<HTMLButtonElement>('[data-delete]');
+  const newCustomerWrap = document.querySelector('[data-new-customer]');
+  const customerLabel = document.querySelector('[data-customer-label]');
+  const customerIdInput = form.elements.namedItem('customer_id') as HTMLInputElement;
+  const clearCustomerBtn = document.querySelector<HTMLButtonElement>('[data-clear-customer]');
+  const waCustomer = document.querySelector<HTMLAnchorElement>('[data-wa-customer]');
+  const paymentHint = document.querySelector('[data-payment-hint]');
+
+  const show = (message: string, error = false) => {
+    if (!alertEl) return;
+    alertEl.hidden = false;
+    alertEl.textContent = message;
+    alertEl.classList.toggle('is-error', error);
+  };
+
+  type CatalogProduct = { codigo: string; nombre: string; precio_real: number; stock: number };
+  type ProductImage = { product_codigo: string; thumb: string; is_principal: boolean };
+  type CustomerRow = { id: string; name: string; phone: string };
+
+  const [{ data: customers }, { data: products }, { data: images }] = await Promise.all([
+    supabase.from('customers').select('id, name, phone').order('name'),
+    supabase.from('products').select('codigo, nombre, precio_real, stock').order('nombre'),
+    supabase.from('product_images').select('product_codigo, thumb, is_principal'),
+  ]);
+
+  const catalog = (products ?? []) as CatalogProduct[];
+  const thumbs = (images ?? []) as ProductImage[];
+  const agenda = (customers ?? []) as CustomerRow[];
+  let items: SaleItemInput[] = [];
+  let previous = { stock_applied: false, items: [] as SaleItemInput[] };
+  let selectedCustomer: CustomerRow | null = null;
+
+  function thumbOf(codigo: string) {
+    const list = thumbs.filter((row) => row.product_codigo === codigo);
+    return list.find((row) => row.is_principal)?.thumb ?? list[0]?.thumb ?? '';
+  }
+
+  function customerOf(id: string) {
+    return agenda.find((row) => row.id === id) ?? null;
+  }
+
+  function setCustomer(row: CustomerRow | null) {
+    selectedCustomer = row;
+    customerIdInput.value = row?.id ?? '';
+    if (customerLabel) {
+      customerLabel.textContent = row
+        ? `${row.name}${row.phone ? ` · ${row.phone}` : ''}`
+        : 'Ninguno seleccionado. Busca uno o crea uno nuevo.';
+    }
+    if (newCustomerWrap) newCustomerWrap.classList.toggle('is-hidden', Boolean(row));
+    if (clearCustomerBtn) clearCustomerBtn.hidden = !row;
+    const wa = row?.phone ? customerWhatsAppUrl(row.phone) : '';
+    if (waCustomer) {
+      waCustomer.hidden = !wa;
+      waCustomer.href = wa;
+    }
+  }
+
+  function paidAmount() {
+    return Math.max(0, Number((form.elements.namedItem('amount_paid') as HTMLInputElement).value || 0));
+  }
+
+  function updateTotals() {
+    const total = saleTotal(items);
+    if (totalEl) totalEl.textContent = `Total: ${formatPrice(total)}`;
+    if (paymentHint) {
+      const paid = paidAmount();
+      const label = paymentStateLabel(paid, total);
+      paymentHint.textContent =
+        label === 'Seña'
+          ? `Pago: seña ${formatPrice(paid)} de ${formatPrice(total)}`
+          : `Pago: ${label.toLowerCase()}`;
+    }
+  }
+
+  function renderItems() {
+    if (!itemList) return;
+    if (!items.length) {
+      itemList.innerHTML = '<p class="muted">Aún no hay piezas en esta venta.</p>';
+    } else {
+      itemList.innerHTML = items
+        .map((item, index) => {
+          const thumb = thumbOf(item.product_codigo);
+          const product = catalog.find((row) => row.codigo === item.product_codigo);
+          return `
+            <article data-item-index="${index}">
+              ${thumb ? `<img src="${escapeHtml(thumb)}" alt="">` : '<div class="admin-carousel__empty"></div>'}
+              <p>${escapeHtml(item.product_nombre)} <span>${escapeHtml(item.product_codigo)}${product ? ` · stock ${product.stock}` : ''}</span></p>
+              <label>Cant. <input type="number" min="1" value="${item.qty}" data-item-qty></label>
+              <label>Precio <input type="number" min="0" value="${item.unit_price}" data-item-price></label>
+              <button type="button" data-item-remove>Quitar</button>
+            </article>
+          `;
+        })
+        .join('');
+    }
+    updateTotals();
+  }
+
+  function readItemsFromDom() {
+    itemList?.querySelectorAll<HTMLElement>('[data-item-index]').forEach((card) => {
+      const index = Number(card.dataset.itemIndex);
+      if (!items[index]) return;
+      items[index].qty = Math.max(1, Number(card.querySelector<HTMLInputElement>('[data-item-qty]')?.value ?? 1));
+      items[index].unit_price = Math.max(0, Number(card.querySelector<HTMLInputElement>('[data-item-price]')?.value ?? 0));
+    });
+  }
+
+  if (presetCustomer) setCustomer(customerOf(presetCustomer));
+  else setCustomer(null);
+
+  document.querySelector('[data-pick-customer]')?.addEventListener('click', () => {
+    openCustomerPicker({
+      customers: agenda,
+      selected: selectedCustomer?.id,
+      onSelect: (id) => setCustomer(customerOf(id)),
+    });
+  });
+
+  clearCustomerBtn?.addEventListener('click', () => setCustomer(null));
+
+  document.querySelector('[data-add-item]')?.addEventListener('click', () => {
+    openProductPicker({
+      title: 'Añadir a la venta',
+      confirmLabel: 'Añadir',
+      products: catalog.map((row) => ({
+        codigo: row.codigo,
+        nombre: `${row.nombre}${row.stock <= 0 ? ' · agotado' : ''}`,
+        thumb: thumbOf(row.codigo),
+      })),
+      onSelect: (codigo) => {
+        const product = catalog.find((row) => row.codigo === codigo);
+        if (!product) return;
+        const existing = items.find((item) => item.product_codigo === codigo);
+        if (existing) existing.qty += 1;
+        else {
+          items.push({
+            product_codigo: product.codigo,
+            qty: 1,
+            unit_price: product.precio_real,
+            product_nombre: product.nombre,
+          });
+        }
+        renderItems();
+      },
+    });
+  });
+
+  itemList?.addEventListener('input', () => {
+    readItemsFromDom();
+    updateTotals();
+  });
+
+  form.elements.namedItem('amount_paid')?.addEventListener('input', updateTotals);
+
+  itemList?.addEventListener('click', (event) => {
+    const target = event.target as HTMLElement;
+    const card = target.closest<HTMLElement>('[data-item-index]');
+    if (!card || !target.closest('[data-item-remove]')) return;
+    readItemsFromDom();
+    items.splice(Number(card.dataset.itemIndex), 1);
+    renderItems();
+  });
+
+  if (existingId) {
+    const { data, error } = await supabase
+      .from('sales')
+      .select('*, sale_items(*)')
+      .eq('id', existingId)
+      .maybeSingle();
+    if (error || !data) show(error?.message ?? 'Venta no encontrada.', true);
+    else {
+      const known = customerOf(data.customer_id);
+      if (known) setCustomer(known);
+      else {
+        const { data: customer } = await supabase
+          .from('customers')
+          .select('id, name, phone')
+          .eq('id', data.customer_id)
+          .maybeSingle();
+        if (customer) agenda.push(customer);
+        setCustomer(customer ?? { id: data.customer_id, name: 'Cliente', phone: '' });
+      }
+      (form.elements.namedItem('status') as HTMLSelectElement).value = data.status;
+      (form.elements.namedItem('note') as HTMLTextAreaElement).value = data.note ?? '';
+      (form.elements.namedItem('city') as HTMLInputElement).value = data.city ?? '';
+      (form.elements.namedItem('shipping') as HTMLSelectElement).value = data.shipping ?? '';
+      (form.elements.namedItem('payment_method') as HTMLSelectElement).value = data.payment_method ?? '';
+      (form.elements.namedItem('amount_paid') as HTMLInputElement).value = String(data.amount_paid ?? 0);
+      (form.elements.namedItem('delivery_date') as HTMLInputElement).value = data.delivery_date ?? '';
+      (form.elements.namedItem('chat_url') as HTMLInputElement).value = data.chat_url ?? '';
+      items = (data.sale_items ?? []).map((row: SaleItemInput) => ({
+        product_codigo: row.product_codigo,
+        qty: row.qty,
+        unit_price: row.unit_price,
+        product_nombre: row.product_nombre,
+      }));
+      previous = { stock_applied: Boolean(data.stock_applied), items: items.map((item) => ({ ...item })) };
+      if (deleteBtn) deleteBtn.hidden = false;
+    }
+  }
+
+  renderItems();
+
+  async function ensureCustomer() {
+    if (customerIdInput.value) return customerIdInput.value;
+    const name = String(new FormData(form).get('customer_name') ?? '').trim();
+    const phone = sanitizePhone(String(new FormData(form).get('customer_phone') ?? ''));
+    return reuseOrCreateCustomer(supabase, { name, phone });
+  }
+
+  function allowedValue(value: string, options: readonly { value: string }[]) {
+    return options.some((item) => item.value === value) ? value : '';
+  }
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    readItemsFromDom();
+    if (!items.length) {
+      show('Añade al menos un producto.', true);
+      return;
+    }
+    try {
+      const data = new FormData(form);
+      const customerId = await ensureCustomer();
+      const status = String(data.get('status') ?? 'pendiente') as SaleStatus;
+      const payload = {
+        customer_id: customerId,
+        status,
+        note: String(data.get('note') ?? '').trim(),
+        city: String(data.get('city') ?? '').trim(),
+        shipping: allowedValue(String(data.get('shipping') ?? ''), shippingOptions),
+        payment_method: allowedValue(String(data.get('payment_method') ?? ''), paymentMethods),
+        amount_paid: Math.max(0, Math.round(Number(data.get('amount_paid') ?? 0))),
+        delivery_date: String(data.get('delivery_date') ?? '').trim() || null,
+        chat_url: String(data.get('chat_url') ?? '').trim(),
+        stock_applied: previous.stock_applied,
+        updated_at: new Date().toISOString(),
+      };
+      let saleId = existingId;
+      if (saleId) {
+        const { error } = await supabase.from('sales').update(payload).eq('id', saleId);
+        if (error) throw error;
+        const { error: clearError } = await supabase.from('sale_items').delete().eq('sale_id', saleId);
+        if (clearError) throw clearError;
+      } else {
+        const { data: created, error } = await supabase.from('sales').insert(payload).select('id').single();
+        if (error || !created) throw new Error(error?.message ?? 'No se pudo crear la venta.');
+        saleId = created.id;
+      }
+      const { error: itemsError } = await supabase.from('sale_items').insert(
+        items.map((item) => ({
+          sale_id: saleId,
+          product_codigo: item.product_codigo,
+          qty: item.qty,
+          unit_price: item.unit_price,
+          product_nombre: item.product_nombre,
+        })),
+      );
+      if (itemsError) throw itemsError;
+      const stockApplied = await syncSaleStock(supabase, previous, { status, items });
+      const { error: flagError } = await supabase
+        .from('sales')
+        .update({ stock_applied: stockApplied, updated_at: new Date().toISOString() })
+        .eq('id', saleId);
+      if (flagError) throw flagError;
+      previous = { stock_applied: stockApplied, items: items.map((item) => ({ ...item })) };
+      show('Venta guardada. El stock se actualizó si el estado es vendido.');
+      if (!existingId && saleId) window.location.replace(`/admin/ventas/editar?id=${encodeURIComponent(saleId)}`);
+    } catch (error) {
+      show(error instanceof Error ? error.message : 'No se pudo guardar.', true);
+    }
+  });
+
+  deleteBtn?.addEventListener('click', async () => {
+    if (!existingId || !confirm('¿Eliminar esta venta?')) return;
+    try {
+      if (previous.stock_applied) {
+        await syncSaleStock(supabase, previous, { status: 'cancelado', items: [] });
+      }
+      const { error } = await supabase.from('sales').delete().eq('id', existingId);
+      if (error) throw error;
+      window.location.replace('/admin/ventas');
+    } catch (error) {
+      show(error instanceof Error ? error.message : 'No se pudo eliminar.', true);
+    }
+  });
+</script>

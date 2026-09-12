@@ -5,51 +5,122 @@ import AdminLayout from '../../layouts/AdminLayout.astro';
 <AdminLayout title="Resumen">
   <p class="admin-alert" data-admin-alert hidden></p>
   <div class="admin-grid" data-stats>
-    <a class="admin-card" href="/admin/productos">
-      <span>Productos</span>
-      <strong data-stat="products">—</strong>
+    <a class="admin-card" href="/admin/ventas?periodo=mes&status=vendido">
+      <span>Ingresos del mes</span>
+      <strong data-stat="revenue">—</strong>
     </a>
-    <a class="admin-card" href="/admin/categorias">
-      <span>Categorías</span>
-      <strong data-stat="categories">—</strong>
+    <a class="admin-card" href="/admin/ventas?status=pendiente">
+      <span>Pendientes</span>
+      <strong data-stat="pending">—</strong>
     </a>
-    <a class="admin-card" href="/admin/productos">
+    <a class="admin-card" href="/admin/productos?stock=bajo">
       <span>Stock bajo</span>
       <strong data-stat="low">—</strong>
     </a>
-    <a class="admin-card" href="/admin/inicio/hero">
-      <span>Slides del hero</span>
-      <strong data-stat="hero">—</strong>
+    <a class="admin-card" href="/admin/ventas?periodo=mes&status=vendido">
+      <span>Ventas del mes</span>
+      <strong data-stat="month-sales">—</strong>
     </a>
   </div>
+  <section class="admin-panel-block">
+    <h2 class="section-title">Stock bajo</h2>
+    <p class="muted">Piezas con 3 o menos unidades. <a href="/admin/productos?stock=bajo">Ver en Productos</a></p>
+    <div class="admin-history" data-low-list></div>
+  </section>
+  <section class="admin-panel-block">
+    <h2 class="section-title">Últimas ventas</h2>
+    <div class="admin-history" data-recent-sales></div>
+  </section>
 </AdminLayout>
 
 <script>
   import { requireAdminSession } from '../../lib/admin';
+  import { saleInPeriod, saleStatusLabel, saleTotal } from '../../lib/admin-sales';
+  import { formatPrice } from '../../data/site';
+  import { escapeHtml } from '../../lib/media/ui';
 
   const gate = await requireAdminSession();
   if (!gate) throw new Error('redirect');
   const { supabase } = gate;
   const alertEl = document.querySelector('[data-admin-alert]');
+  const lowList = document.querySelector('[data-low-list]');
+  const recentList = document.querySelector('[data-recent-sales]');
 
-  const [{ count: products }, { count: categories }, { data: lowRows }, { count: hero }] = await Promise.all([
-    supabase.from('products').select('*', { count: 'exact', head: true }),
-    supabase.from('categories').select('*', { count: 'exact', head: true }),
-    supabase.from('products').select('codigo').lte('stock', 3),
-    supabase.from('hero_slides').select('*', { count: 'exact', head: true }).eq('active', true),
-  ]);
-
-  const set = (key: string, value: number | null | undefined) => {
-    const el = document.querySelector(`[data-stat="${key}"]`);
-    if (el) el.textContent = String(value ?? 0);
+  type SaleRow = {
+    id: string;
+    status: string;
+    created_at: string;
+    customers?: { name: string } | { name: string }[] | null;
+    sale_items?: { qty: number; unit_price: number }[];
   };
 
-  set('products', products);
-  set('categories', categories);
-  set('low', lowRows?.length ?? 0);
-  set('hero', hero);
+  const [{ data: lowRows, error: productError }, { data: sales, error: salesError }] = await Promise.all([
+    supabase.from('products').select('codigo, nombre, stock').lte('stock', 3).order('stock', { ascending: true }),
+    supabase
+      .from('sales')
+      .select('id, status, created_at, customers(name), sale_items(qty, unit_price)')
+      .order('created_at', { ascending: false }),
+  ]);
 
-  if (alertEl && products == null) {
+  function customerName(row: SaleRow) {
+    const related = row.customers;
+    return (Array.isArray(related) ? related[0] : related)?.name ?? 'Cliente';
+  }
+
+  const rows = (sales ?? []) as SaleRow[];
+  const pending = rows.filter((row) => row.status === 'pendiente').length;
+  const monthSold = rows.filter((row) => row.status === 'vendido' && saleInPeriod(row.created_at, 'mes'));
+  const revenue = monthSold.reduce((sum, row) => sum + saleTotal(row.sale_items ?? []), 0);
+
+  const set = (key: string, value: string) => {
+    const el = document.querySelector(`[data-stat="${key}"]`);
+    if (el) el.textContent = value;
+  };
+
+  set('revenue', formatPrice(revenue));
+  set('pending', String(pending));
+  set('low', String(lowRows?.length ?? 0));
+  set('month-sales', String(monthSold.length));
+
+  if (lowList) {
+    if (!lowRows?.length) lowList.innerHTML = '<p class="muted">No hay piezas con stock bajo.</p>';
+    else {
+      lowList.innerHTML = lowRows
+        .map(
+          (row) => `
+            <article>
+              <p>${escapeHtml(row.nombre)} <span>${row.stock} ${row.stock === 1 ? 'unidad' : 'unidades'}</span></p>
+              <a href="/admin/productos/editar?codigo=${encodeURIComponent(row.codigo)}">Abrir</a>
+            </article>
+          `,
+        )
+        .join('');
+    }
+  }
+
+  if (recentList) {
+    const latest = rows.slice(0, 5);
+    if (!latest.length) recentList.innerHTML = '<p class="muted">Aún no hay ventas.</p>';
+    else {
+      recentList.innerHTML = latest
+        .map((row) => {
+          const total = saleTotal(row.sale_items ?? []);
+          return `
+            <article>
+              <p>${escapeHtml(customerName(row))} <span>${formatPrice(total)} · ${escapeHtml(saleStatusLabel(row.status))}</span></p>
+              <a href="/admin/ventas/editar?id=${encodeURIComponent(row.id)}">Abrir</a>
+            </article>
+          `;
+        })
+        .join('');
+    }
+  }
+
+  if (alertEl && (productError || (salesError && !String(salesError.message).includes('sales')))) {
+    alertEl.hidden = false;
+    alertEl.classList.add('is-error');
+    alertEl.textContent = productError?.message ?? salesError?.message ?? 'No se pudo leer el resumen.';
+  } else if (alertEl && productError) {
     alertEl.hidden = false;
     alertEl.classList.add('is-error');
     alertEl.textContent = 'No se pudo leer el catálogo. Corre supabase/dashboard.sql en el SQL Editor.';

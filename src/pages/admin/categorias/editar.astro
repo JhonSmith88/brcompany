@@ -1,0 +1,223 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+---
+
+<AdminLayout title="Categoría">
+  <p class="muted"><a href="/admin/categorias">← Categorías</a></p>
+  <p class="admin-alert" data-admin-alert hidden></p>
+  <p class="muted" data-mode></p>
+  <form class="admin-form" data-category-form>
+    <div class="row-2">
+      <label>Nombre <input name="nombre" required></label>
+      <label>Slug <input name="slug" required></label>
+    </div>
+    <label>Descripción <textarea name="descripcion" required></textarea></label>
+    <label>Orden <input name="orden" type="number" value="1"></label>
+    <div data-enlace></div>
+    <div class="row-2">
+      <label>Icono de vitrina
+        <select name="icono"></select>
+      </label>
+      <label class="admin-check"><input type="checkbox" name="en_vitrina" checked> Mostrar en la vitrina</label>
+    </div>
+    <div data-imagen></div>
+    <div class="admin-actions">
+      <button class="btn btn--gold" type="submit">Guardar categoría</button>
+      <button class="btn btn--outline" type="button" data-delete hidden>Eliminar</button>
+      <a class="btn btn--outline" href="/admin/productos/editar" data-new-product hidden>Nueva pieza</a>
+      <a class="btn btn--outline" data-public hidden target="_blank" rel="noopener">Ver catálogo</a>
+    </div>
+  </form>
+  <section data-products-wrap hidden>
+    <h2 class="section-title" style="font-size: 1.45rem; margin-top: 2rem">Piezas</h2>
+    <div class="admin-history" data-products-list></div>
+  </section>
+</AdminLayout>
+
+<script>
+  import { requireAdminSession, slugify } from '../../../lib/admin';
+  import { bindRoutePickers, loadSiteRoutes, pickerHref, routePickerHtml, setPickerHref } from '../../../lib/admin-routes';
+  import { categoryHref, sanitizeVitrinaIcon, vitrinaIconOptions } from '../../../lib/home';
+  import { bindMediaFields, mediaFieldHtml } from '../../../lib/media/media-picker';
+  import { formatPrice } from '../../../data/site';
+  import { escapeHtml } from '../../../lib/media/ui';
+
+  const gate = await requireAdminSession();
+  if (!gate) throw new Error('redirect');
+  const { supabase } = gate;
+  const params = new URLSearchParams(window.location.search);
+  const existingSlug = params.get('slug');
+  const form = document.querySelector<HTMLFormElement>('[data-category-form]')!;
+  const alertEl = document.querySelector('[data-admin-alert]');
+  const mode = document.querySelector('[data-mode]');
+  const deleteBtn = document.querySelector<HTMLButtonElement>('[data-delete]');
+  const newProduct = document.querySelector<HTMLAnchorElement>('[data-new-product]');
+  const publicLink = document.querySelector<HTMLAnchorElement>('[data-public]');
+  const enlaceSlot = document.querySelector('[data-enlace]');
+  const imagenSlot = document.querySelector('[data-imagen]');
+  const productsWrap = document.querySelector('[data-products-wrap]');
+  const productsList = document.querySelector('[data-products-list]');
+  const iconSelect = form.elements.namedItem('icono') as HTMLSelectElement;
+  const nombreInput = form.elements.namedItem('nombre') as HTMLInputElement;
+  const slugInput = form.elements.namedItem('slug') as HTMLInputElement;
+  const siteRoutes = await loadSiteRoutes(supabase);
+
+  const show = (message: string, error = false) => {
+    if (!alertEl) return;
+    alertEl.hidden = false;
+    alertEl.textContent = message;
+    alertEl.classList.toggle('is-error', error);
+  };
+
+  iconSelect.innerHTML = vitrinaIconOptions
+    .map((option) => `<option value="${option.value}">${option.label}</option>`)
+    .join('');
+
+  function setSlots(slug: string, enlace: string, imagen: string) {
+    if (enlaceSlot) {
+      enlaceSlot.innerHTML = routePickerHtml({
+        label: 'Enlace de la vitrina',
+        value: categoryHref(slug, enlace),
+        routes: siteRoutes,
+        name: 'enlace',
+      });
+      bindRoutePickers(enlaceSlot);
+    }
+    if (imagenSlot) {
+      imagenSlot.innerHTML = mediaFieldHtml({
+        name: 'imagen',
+        label: 'Imagen',
+        value: imagen,
+        folder: 'categories',
+        required: true,
+      });
+      bindMediaFields(imagenSlot);
+    }
+  }
+
+  function syncPublic(slug: string) {
+    if (publicLink && slug) {
+      publicLink.hidden = false;
+      publicLink.href = `/catalogo/${slug}`;
+    }
+    if (newProduct && slug) {
+      newProduct.hidden = false;
+      newProduct.href = `/admin/productos/editar?categoria=${encodeURIComponent(slug)}`;
+    }
+  }
+
+  async function loadProducts(slug: string) {
+    if (!productsWrap || !productsList) return;
+    const { data } = await supabase
+      .from('products')
+      .select('codigo, nombre, precio_real, stock')
+      .eq('categoria_slug', slug)
+      .order('nombre');
+    if (!data?.length) {
+      productsWrap.hidden = false;
+      productsList.innerHTML = '<p class="muted">Aún no hay piezas en esta colección.</p>';
+      return;
+    }
+    productsWrap.hidden = false;
+    productsList.innerHTML = data
+      .map((row) => {
+        const stock = Number(row.stock ?? 0);
+        const stockText = stock <= 0 ? 'Agotado' : stock <= 3 ? `Stock bajo · ${stock}` : `${stock} en stock`;
+        return `
+          <article>
+            <p>${escapeHtml(row.nombre)} <span>${formatPrice(row.precio_real)} · ${escapeHtml(stockText)}</span></p>
+            <a href="/admin/productos/editar?codigo=${encodeURIComponent(row.codigo)}">Editar</a>
+          </article>
+        `;
+      })
+      .join('');
+  }
+
+  if (mode) mode.textContent = existingSlug ? `Editando ${existingSlug}` : 'Alta de categoría';
+  if (existingSlug) slugInput.readOnly = true;
+
+  if (existingSlug) {
+    const { data, error } = await supabase.from('categories').select('*').eq('slug', existingSlug).maybeSingle();
+    if (error || !data) show(error?.message ?? 'Categoría no encontrada.', true);
+    else {
+      nombreInput.value = data.nombre;
+      slugInput.value = data.slug;
+      (form.elements.namedItem('descripcion') as HTMLTextAreaElement).value = data.descripcion ?? '';
+      (form.elements.namedItem('orden') as HTMLInputElement).value = String(data.orden ?? 1);
+      iconSelect.value = sanitizeVitrinaIcon(data.icono ?? '', data.slug);
+      (form.elements.namedItem('en_vitrina') as HTMLInputElement).checked = data.en_vitrina !== false;
+      setSlots(data.slug, data.enlace ?? '', data.imagen ?? '');
+      if (deleteBtn) deleteBtn.hidden = false;
+      syncPublic(data.slug);
+      await loadProducts(data.slug);
+    }
+  } else {
+    const { data: last } = await supabase.from('categories').select('orden').order('orden', { ascending: false }).limit(1);
+    (form.elements.namedItem('orden') as HTMLInputElement).value = String((last?.[0]?.orden ?? 0) + 1);
+    setSlots('', '', '');
+  }
+
+  nombreInput.addEventListener('input', () => {
+    if (existingSlug) return;
+    slugInput.value = slugify(nombreInput.value);
+    const next = slugInput.value ? `/catalogo/${slugInput.value}` : '';
+    if (next) setPickerHref(form, next);
+  });
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const payload = new FormData(form);
+    const slug = existingSlug || slugify(String(payload.get('slug') ?? ''));
+    const nombre = String(payload.get('nombre') ?? '').trim();
+    const descripcion = String(payload.get('descripcion') ?? '').trim();
+    const imagen = String(payload.get('imagen') ?? '').trim();
+    const orden = Number(payload.get('orden') ?? 0);
+    if (!nombre || !slug) {
+      show('Nombre y slug son obligatorios.', true);
+      return;
+    }
+    if (!imagen) {
+      show('Elige una imagen para la colección.', true);
+      return;
+    }
+    const row = {
+      slug,
+      nombre,
+      descripcion,
+      imagen,
+      orden,
+      icono: sanitizeVitrinaIcon(String(payload.get('icono') ?? ''), slug),
+      enlace: categoryHref(slug, pickerHref(form, `/catalogo/${slug}`).replace(/\/catalogo\/?$/, `/catalogo/${slug}`)),
+      en_vitrina: Boolean((form.elements.namedItem('en_vitrina') as HTMLInputElement).checked),
+    };
+    const query = existingSlug
+      ? supabase.from('categories').update(row).eq('slug', existingSlug)
+      : supabase.from('categories').insert(row);
+    const { error } = await query;
+    if (error) {
+      show(error.message.includes('categories_pkey') ? 'Ya existe una categoría con ese slug.' : error.message, true);
+      return;
+    }
+    if (!existingSlug) {
+      window.location.replace(`/admin/categorias/editar?slug=${encodeURIComponent(slug)}`);
+      return;
+    }
+    show('Categoría guardada.');
+    syncPublic(slug);
+  });
+
+  deleteBtn?.addEventListener('click', async () => {
+    if (!existingSlug || !confirm('¿Eliminar esta categoría?')) return;
+    const { count } = await supabase
+      .from('products')
+      .select('codigo', { count: 'exact', head: true })
+      .eq('categoria_slug', existingSlug);
+    if (count) {
+      show('Esta colección tiene productos. Muévelos o elimínalos antes.', true);
+      return;
+    }
+    const { error } = await supabase.from('categories').delete().eq('slug', existingSlug);
+    if (error) show(error.message, true);
+    else window.location.replace('/admin/categorias');
+  });
+</script>

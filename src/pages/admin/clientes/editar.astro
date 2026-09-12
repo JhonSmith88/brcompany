@@ -1,0 +1,160 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+---
+
+<AdminLayout title="Cliente">
+  <p class="muted"><a href="/admin/clientes">← Clientes</a></p>
+  <p class="admin-alert" data-admin-alert hidden></p>
+  <form class="admin-form" data-customer-form>
+    <label>Nombre <input name="name" required></label>
+    <label>WhatsApp <input name="phone" placeholder="593..."></label>
+    <label>Notas del cliente <textarea name="notes" placeholder="Preferencias, tallas, envío, acuerdos..."></textarea></label>
+    <div class="admin-actions">
+      <button class="btn btn--gold" type="submit">Guardar cliente</button>
+      <button class="btn btn--outline" type="button" data-delete hidden>Eliminar</button>
+      <a class="btn btn--outline" href="/admin/ventas/editar" data-new-sale hidden>Nueva venta</a>
+      <a class="btn btn--outline" data-wa-customer hidden target="_blank" rel="noopener">Escribir por WhatsApp</a>
+    </div>
+  </form>
+  <section data-sales-wrap hidden>
+    <h2 class="section-title" style="font-size: 1.45rem; margin-top: 2rem">Historial</h2>
+    <div class="admin-history" data-sales-list></div>
+  </section>
+</AdminLayout>
+
+<script>
+  import { requireAdminSession } from '../../../lib/admin';
+  import {
+    customerWhatsAppUrl,
+    findCustomerByPhone,
+    saleStatusLabel,
+    sanitizePhone,
+    uniquePhoneMessage,
+  } from '../../../lib/admin-sales';
+  import { formatPrice } from '../../../data/site';
+  import { escapeHtml } from '../../../lib/media/ui';
+
+  const gate = await requireAdminSession();
+  if (!gate) throw new Error('redirect');
+  const { supabase } = gate;
+  const params = new URLSearchParams(window.location.search);
+  const existingId = params.get('id');
+  const form = document.querySelector<HTMLFormElement>('[data-customer-form]')!;
+  const alertEl = document.querySelector('[data-admin-alert]');
+  const deleteBtn = document.querySelector<HTMLButtonElement>('[data-delete]');
+  const newSale = document.querySelector<HTMLAnchorElement>('[data-new-sale]');
+  const waCustomer = document.querySelector<HTMLAnchorElement>('[data-wa-customer]');
+  const salesWrap = document.querySelector('[data-sales-wrap]');
+  const salesList = document.querySelector('[data-sales-list]');
+  const phoneInput = form.elements.namedItem('phone') as HTMLInputElement;
+
+  const show = (message: string, error = false) => {
+    if (!alertEl) return;
+    alertEl.hidden = false;
+    alertEl.textContent = message;
+    alertEl.classList.toggle('is-error', error);
+  };
+
+  function syncWhatsApp(phone: string) {
+    const wa = customerWhatsAppUrl(phone);
+    if (!waCustomer) return;
+    waCustomer.hidden = !wa;
+    waCustomer.href = wa;
+  }
+
+  function fill(row: { name: string; phone: string; notes: string }) {
+    const field = (name: string) => form.elements.namedItem(name) as HTMLInputElement | HTMLTextAreaElement;
+    field('name').value = row.name;
+    field('phone').value = row.phone;
+    field('notes').value = row.notes;
+    syncWhatsApp(row.phone);
+  }
+
+  async function loadSales(customerId: string) {
+    const { data, error } = await supabase
+      .from('sales')
+      .select('id, status, created_at, sale_items(qty, unit_price)')
+      .eq('customer_id', customerId)
+      .order('created_at', { ascending: false });
+    if (error || !salesWrap || !salesList) return;
+    if (!data?.length) {
+      salesWrap.hidden = true;
+      return;
+    }
+    salesWrap.hidden = false;
+    salesList.innerHTML = data
+      .map((row) => {
+        const total = (row.sale_items ?? []).reduce((sum, item) => sum + item.qty * item.unit_price, 0);
+        const date = new Date(row.created_at).toLocaleDateString('es-EC');
+        return `
+          <article>
+            <p>${escapeHtml(saleStatusLabel(row.status))} <span>${escapeHtml(date)} · ${formatPrice(total)}</span></p>
+            <a href="/admin/ventas/editar?id=${encodeURIComponent(row.id)}">Ver venta</a>
+          </article>
+        `;
+      })
+      .join('');
+  }
+
+  if (existingId) {
+    const { data, error } = await supabase.from('customers').select('*').eq('id', existingId).maybeSingle();
+    if (error || !data) show(error?.message ?? 'Cliente no encontrado.', true);
+    else {
+      fill(data);
+      if (deleteBtn) deleteBtn.hidden = false;
+      if (newSale) {
+        newSale.hidden = false;
+        newSale.href = `/admin/ventas/editar?cliente=${encodeURIComponent(existingId)}`;
+      }
+      await loadSales(existingId);
+    }
+  }
+
+  phoneInput.addEventListener('input', () => syncWhatsApp(phoneInput.value));
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const payload = new FormData(form);
+    const row = {
+      name: String(payload.get('name') ?? '').trim(),
+      phone: sanitizePhone(String(payload.get('phone') ?? '')),
+      notes: String(payload.get('notes') ?? '').trim(),
+      updated_at: new Date().toISOString(),
+    };
+    if (!row.name) {
+      show('El nombre no puede estar vacío.', true);
+      return;
+    }
+    if (!existingId && row.phone) {
+      try {
+        const existing = await findCustomerByPhone(supabase, row.phone);
+        if (existing) {
+          window.location.replace(`/admin/clientes/editar?id=${encodeURIComponent(existing.id)}`);
+          return;
+        }
+      } catch (error) {
+        show(error instanceof Error ? error.message : 'No se pudo revisar el WhatsApp.', true);
+        return;
+      }
+    }
+    if (existingId) {
+      const { error } = await supabase.from('customers').update(row).eq('id', existingId);
+      if (error) show(uniquePhoneMessage(error) || error.message, true);
+      else {
+        fill(row);
+        show('Cliente guardado.');
+      }
+      return;
+    }
+    const { data, error } = await supabase.from('customers').insert(row).select('id').single();
+    if (error || !data) show(uniquePhoneMessage(error) || error?.message || 'No se pudo crear.', true);
+    else window.location.replace(`/admin/clientes/editar?id=${encodeURIComponent(data.id)}`);
+  });
+
+  deleteBtn?.addEventListener('click', async () => {
+    if (!existingId || !confirm('¿Eliminar este cliente?')) return;
+    const { error } = await supabase.from('customers').delete().eq('id', existingId);
+    if (error) show(error.message.includes('sales') ? 'Este cliente tiene ventas. Cancélalas o quítalas antes.' : error.message, true);
+    else window.location.replace('/admin/clientes');
+  });
+</script>

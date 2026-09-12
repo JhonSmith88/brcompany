@@ -3,24 +3,54 @@ import AdminLayout from '../../layouts/AdminLayout.astro';
 ---
 
 <AdminLayout title="Categorías">
-  <p class="muted">El enlace de la vitrina puede ser una página, colección o producto del sitio, o una URL externa.</p>
+  <p class="muted">Colecciones del catálogo. La vitrina del inicio se ajusta también en Inicio → Vitrina.</p>
   <p class="admin-alert" data-admin-alert hidden></p>
-  <div data-cat-form-wrap></div>
+  <div class="admin-actions">
+    <a class="btn btn--gold" href="/admin/categorias/editar">Nueva categoría</a>
+    <a class="btn btn--outline" href="/admin/productos">Productos</a>
+  </div>
+  <form class="admin-filters" data-category-filters>
+    <label>Buscar <input type="search" name="q" placeholder="Nombre, slug o descripción"></label>
+  </form>
+  <p class="muted" data-category-count></p>
+  <div style="overflow:auto">
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>Foto</th>
+          <th>Nombre</th>
+          <th>Piezas</th>
+          <th>Vitrina</th>
+          <th>Orden</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody data-category-rows></tbody>
+    </table>
+  </div>
 </AdminLayout>
 
 <script>
   import { requireAdminSession } from '../../lib/admin';
-  import { bindRoutePickers, loadSiteRoutes, pickerHref, routePickerHtml } from '../../lib/admin-routes';
-  import { categoryHref, sanitizeVitrinaIcon, vitrinaIconOptions } from '../../lib/home';
-  import { bindMediaFields, mediaFieldHtml } from '../../lib/media/media-picker';
+  import { writeFilterUrl } from '../../lib/admin-sales';
   import { escapeHtml } from '../../lib/media/ui';
 
   const gate = await requireAdminSession();
   if (!gate) throw new Error('redirect');
   const { supabase } = gate;
-  const wrap = document.querySelector('[data-cat-form-wrap]');
   const alertEl = document.querySelector('[data-admin-alert]');
-  const siteRoutes = await loadSiteRoutes(supabase);
+  const body = document.querySelector('[data-category-rows]');
+  const countEl = document.querySelector('[data-category-count]');
+  const filters = document.querySelector<HTMLFormElement>('[data-category-filters]');
+
+  type CategoryRow = {
+    slug: string;
+    nombre: string;
+    descripcion: string;
+    imagen: string;
+    orden: number;
+    en_vitrina?: boolean | null;
+  };
 
   const show = (message: string, error = false) => {
     if (!alertEl) return;
@@ -29,86 +59,105 @@ import AdminLayout from '../../layouts/AdminLayout.astro';
     alertEl.classList.toggle('is-error', error);
   };
 
-  async function render() {
-    const { data, error } = await supabase.from('categories').select('*').order('orden');
-    if (error) {
-      show(error.message, true);
-      return;
+  const [{ data: categories, error }, { data: products }] = await Promise.all([
+    supabase.from('categories').select('slug, nombre, descripcion, imagen, orden, en_vitrina').order('orden'),
+    supabase.from('products').select('categoria_slug, stock'),
+  ]);
+
+  if (error) show(error.message, true);
+
+  const params = new URLSearchParams(window.location.search);
+  const searchField = filters?.elements.namedItem('q') as HTMLInputElement | null;
+  if (searchField) searchField.value = params.get('q') ?? '';
+
+  const productCount = new Map<string, number>();
+  const lowCount = new Map<string, number>();
+  for (const row of products ?? []) {
+    productCount.set(row.categoria_slug, (productCount.get(row.categoria_slug) ?? 0) + 1);
+    if (Number(row.stock ?? 0) <= 3) {
+      lowCount.set(row.categoria_slug, (lowCount.get(row.categoria_slug) ?? 0) + 1);
     }
-    if (!wrap) return;
-    wrap.innerHTML = (data ?? [])
-      .map(
-        (row) => `
-        <form class="admin-form" data-cat-form data-slug="${escapeHtml(row.slug)}" style="margin-bottom:2rem;max-width:none">
-          <div class="row-2">
-            <div>
-              <label>Nombre <input name="nombre" value="${escapeHtml(row.nombre)}" required></label>
-              <label>Orden <input name="orden" type="number" value="${row.orden}"></label>
-            </div>
-          </div>
-          <label>Slug <input name="slug" value="${escapeHtml(row.slug)}" readonly></label>
-          ${routePickerHtml({
-            label: 'Enlace de la vitrina',
-            value: categoryHref(row.slug, row.enlace),
-            routes: siteRoutes,
-            name: 'enlace',
-          })}
-          <label>Descripción <textarea name="descripcion" required>${escapeHtml(row.descripcion)}</textarea></label>
-          <div class="row-2">
-            <label>Icono de vitrina
-              <select name="icono">
-                ${vitrinaIconOptions
-                  .map(
-                    (option) =>
-                      `<option value="${option.value}" ${option.value === sanitizeVitrinaIcon(row.icono ?? '', row.slug) ? 'selected' : ''}>${option.label}</option>`,
-                  )
-                  .join('')}
-              </select>
-            </label>
-            <label class="admin-check"><input type="checkbox" name="en_vitrina" ${row.en_vitrina !== false ? 'checked' : ''}> Mostrar en la vitrina</label>
-          </div>
-          ${mediaFieldHtml({
-            name: 'imagen',
-            label: 'Imagen',
-            value: row.imagen,
-            folder: 'categories',
-            required: true,
-          })}
-          <div class="admin-actions">
-            <button class="btn btn--gold" type="submit">Guardar</button>
-          </div>
-        </form>
-      `,
-      )
-      .join('');
-    bindMediaFields(wrap);
-    bindRoutePickers(wrap);
   }
 
-  wrap?.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    const form = (event.target as HTMLElement).closest<HTMLFormElement>('[data-cat-form]');
-    if (!form) return;
-    const slug = form.dataset.slug!;
-    const payload = new FormData(form);
-    const nombre = String(payload.get('nombre') ?? '');
-    const descripcion = String(payload.get('descripcion') ?? '');
-    const orden = Number(payload.get('orden') ?? 0);
-    const imagen = String(payload.get('imagen') ?? '').trim();
-    const icono = sanitizeVitrinaIcon(String(payload.get('icono') ?? ''), slug);
-    const enlace = categoryHref(slug, pickerHref(form, `/catalogo/${slug}`));
-    const en_vitrina = Boolean(form.querySelector<HTMLInputElement>('[name="en_vitrina"]')?.checked);
-    const update: Record<string, unknown> = { nombre, descripcion, orden, icono, enlace, en_vitrina };
-    if (imagen) update.imagen = imagen;
+  let rows = (categories ?? []) as CategoryRow[];
+
+  async function persistOrder(next: CategoryRow[]) {
+    const updates = next.map((row, index) =>
+      supabase.from('categories').update({ orden: index + 1 }).eq('slug', row.slug),
+    );
+    const results = await Promise.all(updates);
+    const failed = results.find((result) => result.error);
+    if (failed?.error) throw failed.error;
+    rows = next.map((row, index) => ({ ...row, orden: index + 1 }));
+  }
+
+  function currentQuery() {
+    return String((filters ? new FormData(filters) : new FormData()).get('q') ?? '').trim();
+  }
+
+  function render() {
+    const q = currentQuery();
+    writeFilterUrl(['q'], { q });
+    const visible = rows.filter((row) => {
+      if (!q) return true;
+      return `${row.nombre} ${row.slug} ${row.descripcion}`.toLowerCase().includes(q.toLowerCase());
+    });
+    if (countEl) countEl.textContent = `${visible.length} de ${rows.length} categorías`;
+    if (!body) return;
+    if (!visible.length) {
+      body.innerHTML = '<tr><td colspan="6">No hay categorías con esa búsqueda.</td></tr>';
+      return;
+    }
+    body.innerHTML = visible
+      .map((row) => {
+        const pieces = productCount.get(row.slug) ?? 0;
+        const low = lowCount.get(row.slug) ?? 0;
+        const inVitrina = row.en_vitrina !== false;
+        const index = rows.findIndex((item) => item.slug === row.slug);
+        return `
+          <tr>
+            <td>${row.imagen ? `<img src="${escapeHtml(row.imagen)}" alt="">` : ''}</td>
+            <td>${escapeHtml(row.nombre)}<span class="admin-table-sub">${escapeHtml(row.slug)}</span></td>
+            <td>
+              <a href="/admin/productos?categoria=${encodeURIComponent(row.slug)}">${pieces}</a>
+              ${low ? `<span class="admin-table-sub">${low} con stock bajo</span>` : ''}
+            </td>
+            <td><span class="admin-sale-status ${inVitrina ? 'admin-sale-status--vendido' : 'admin-sale-status--cancelado'}">${inVitrina ? 'Visible' : 'Oculta'}</span></td>
+            <td>
+              <div class="admin-order-btns">
+                <button type="button" data-move="-1" data-slug="${escapeHtml(row.slug)}" ${index <= 0 ? 'disabled' : ''}>Subir</button>
+                <button type="button" data-move="1" data-slug="${escapeHtml(row.slug)}" ${index >= rows.length - 1 ? 'disabled' : ''}>Bajar</button>
+              </div>
+            </td>
+            <td>
+              <a href="/admin/categorias/editar?slug=${encodeURIComponent(row.slug)}">Editar</a>
+              <span class="admin-table-sub"><a href="/catalogo/${encodeURIComponent(row.slug)}" target="_blank" rel="noopener">Ver catálogo</a></span>
+            </td>
+          </tr>
+        `;
+      })
+      .join('');
+  }
+
+  filters?.addEventListener('input', render);
+
+  body?.addEventListener('click', async (event) => {
+    const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-move]');
+    if (!button) return;
+    const slug = button.dataset.slug ?? '';
+    const delta = Number(button.dataset.move);
+    const index = rows.findIndex((row) => row.slug === slug);
+    const nextIndex = index + delta;
+    if (index < 0 || nextIndex < 0 || nextIndex >= rows.length) return;
+    const next = [...rows];
+    [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
     try {
-      const { error } = await supabase.from('categories').update(update).eq('slug', slug);
-      if (error) throw error;
-      show('Categoría guardada.');
-      await render();
-    } catch (error) {
-      show(error instanceof Error ? error.message : 'No se pudo guardar.', true);
+      await persistOrder(next);
+      render();
+    } catch (err) {
+      show(err instanceof Error ? err.message : 'No se pudo reordenar.', true);
     }
   });
 
-  await render();
+  render();
 </script>

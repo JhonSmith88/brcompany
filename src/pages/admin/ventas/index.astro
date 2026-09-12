@@ -1,0 +1,183 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+---
+
+<AdminLayout title="Ventas">
+  <p class="muted">Registra pedidos de WhatsApp. Al marcar una venta como vendida se descuenta el stock.</p>
+  <p class="admin-alert" data-admin-alert hidden></p>
+  <div class="admin-actions">
+    <a class="btn btn--gold" href="/admin/ventas/editar">Nueva venta</a>
+    <a class="btn btn--outline" href="/admin/clientes">Clientes</a>
+  </div>
+  <form class="admin-filters admin-filters--sales" data-sale-filters>
+    <label>Buscar <input type="search" name="q" placeholder="Cliente, teléfono o producto"></label>
+    <label>Estado
+      <select name="status">
+        <option value="">Todos</option>
+        <option value="pendiente">Pendiente</option>
+        <option value="vendido">Vendido</option>
+        <option value="cancelado">Cancelado</option>
+      </select>
+    </label>
+    <label>Fecha
+      <select name="periodo">
+        <option value="">Todas</option>
+        <option value="semana">Esta semana</option>
+        <option value="mes">Este mes</option>
+        <option value="rango">Rango</option>
+      </select>
+    </label>
+    <label data-date-range class="is-hidden">Desde <input type="date" name="desde"></label>
+    <label data-date-range class="is-hidden">Hasta <input type="date" name="hasta"></label>
+  </form>
+  <p class="muted" data-sale-count></p>
+  <div style="overflow:auto">
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Cliente</th>
+          <th>Piezas</th>
+          <th>Total</th>
+          <th>Pago</th>
+          <th>Estado</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody data-sale-rows></tbody>
+    </table>
+  </div>
+</AdminLayout>
+
+<script>
+  import { requireAdminSession } from '../../../lib/admin';
+  import {
+    paymentLabel,
+    paymentStateClass,
+    paymentStateLabel,
+    saleInPeriod,
+    saleStatusLabel,
+    saleTotal,
+    writeFilterUrl,
+  } from '../../../lib/admin-sales';
+  import { formatPrice } from '../../../data/site';
+  import { escapeHtml } from '../../../lib/media/ui';
+
+  const gate = await requireAdminSession();
+  if (!gate) throw new Error('redirect');
+  const { supabase } = gate;
+  const alertEl = document.querySelector('[data-admin-alert]');
+  const body = document.querySelector('[data-sale-rows]');
+  const countEl = document.querySelector('[data-sale-count]');
+  const filters = document.querySelector<HTMLFormElement>('[data-sale-filters]');
+  const rangeFields = document.querySelectorAll('[data-date-range]');
+
+  const { data: sales, error } = await supabase
+    .from('sales')
+    .select('id, status, created_at, amount_paid, payment_method, customers(name, phone), sale_items(qty, unit_price, product_nombre)')
+    .order('created_at', { ascending: false });
+
+  if (error && alertEl) {
+    alertEl.hidden = false;
+    alertEl.classList.add('is-error');
+    alertEl.textContent = error.message.includes('sales')
+      ? 'Falta la tabla sales. Corre supabase/sales.sql en el SQL Editor.'
+      : error.message;
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  if (filters) {
+    const field = (name: string) => filters.elements.namedItem(name) as HTMLInputElement | HTMLSelectElement | null;
+    if (field('q')) field('q')!.value = params.get('q') ?? '';
+    if (field('status')) field('status')!.value = params.get('status') ?? '';
+    if (field('periodo')) field('periodo')!.value = params.get('periodo') ?? '';
+    if (field('desde')) field('desde')!.value = params.get('desde') ?? '';
+    if (field('hasta')) field('hasta')!.value = params.get('hasta') ?? '';
+  }
+
+  type SaleRow = {
+    id: string;
+    status: string;
+    created_at: string;
+    amount_paid?: number | null;
+    payment_method?: string | null;
+    customers?: { name: string; phone: string } | { name: string; phone: string }[] | null;
+    sale_items?: { qty: number; unit_price: number; product_nombre: string }[];
+  };
+
+  function customerOf(row: SaleRow) {
+    const related = row.customers;
+    return Array.isArray(related) ? related[0] : related;
+  }
+
+  function currentFilters() {
+    const data = filters ? new FormData(filters) : new FormData();
+    return {
+      q: String(data.get('q') ?? '').trim(),
+      status: String(data.get('status') ?? ''),
+      periodo: String(data.get('periodo') ?? ''),
+      desde: String(data.get('desde') ?? ''),
+      hasta: String(data.get('hasta') ?? ''),
+    };
+  }
+
+  function toggleRange() {
+    const period = currentFilters().periodo;
+    rangeFields.forEach((el) => el.classList.toggle('is-hidden', period !== 'rango'));
+  }
+
+  function render() {
+    const filter = currentFilters();
+    toggleRange();
+    writeFilterUrl(['q', 'status', 'periodo', 'desde', 'hasta'], {
+      q: filter.q,
+      status: filter.status,
+      periodo: filter.periodo,
+      desde: filter.periodo === 'rango' ? filter.desde : '',
+      hasta: filter.periodo === 'rango' ? filter.hasta : '',
+    });
+    const rows = ((sales ?? []) as SaleRow[]).filter((row) => {
+      if (filter.status && row.status !== filter.status) return false;
+      if (!saleInPeriod(row.created_at, filter.periodo, filter.desde, filter.hasta)) return false;
+      if (!filter.q) return true;
+      const customer = customerOf(row);
+      const products = (row.sale_items ?? []).map((item) => item.product_nombre).join(' ');
+      return `${customer?.name ?? ''} ${customer?.phone ?? ''} ${products}`.toLowerCase().includes(filter.q.toLowerCase());
+    });
+    if (countEl) countEl.textContent = `${rows.length} de ${(sales ?? []).length} ventas`;
+    if (!body) return;
+    if (!rows.length) {
+      body.innerHTML = '<tr><td colspan="7">No hay ventas con esos filtros.</td></tr>';
+      return;
+    }
+    body.innerHTML = rows
+      .map((row) => {
+        const customer = customerOf(row);
+        const items = row.sale_items ?? [];
+        const total = saleTotal(items);
+        const paid = Number(row.amount_paid ?? 0);
+        const pieces = items.reduce((sum, item) => sum + item.qty, 0);
+        const pay = paymentStateLabel(paid, total);
+        const method = paymentLabel(row.payment_method ?? '');
+        return `
+          <tr>
+            <td>${escapeHtml(new Date(row.created_at).toLocaleDateString('es-EC'))}</td>
+            <td>${escapeHtml(customer?.name ?? 'Cliente')}<span class="admin-table-sub">${escapeHtml(customer?.phone || '')}</span></td>
+            <td>${pieces}</td>
+            <td>${formatPrice(total)}</td>
+            <td>
+              <span class="admin-sale-status admin-pay--${paymentStateClass(paid, total)}">${escapeHtml(pay)}</span>
+              <span class="admin-table-sub">${escapeHtml(method === 'Sin indicar' ? formatPrice(paid) : `${formatPrice(paid)} · ${method}`)}</span>
+            </td>
+            <td><span class="admin-sale-status admin-sale-status--${escapeHtml(row.status)}">${escapeHtml(saleStatusLabel(row.status))}</span></td>
+            <td><a href="/admin/ventas/editar?id=${encodeURIComponent(row.id)}">Abrir</a></td>
+          </tr>
+        `;
+      })
+      .join('');
+  }
+
+  filters?.addEventListener('input', render);
+  filters?.addEventListener('change', render);
+  render();
+</script>

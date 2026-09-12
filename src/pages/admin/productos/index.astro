@@ -3,10 +3,36 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
 ---
 
 <AdminLayout title="Productos">
+  <p class="muted">Filtra por nombre, código, categoría o stock. Las ventas y el inventario se actualizan desde Ventas.</p>
   <p class="admin-alert" data-admin-alert hidden></p>
   <div class="admin-actions">
     <a class="btn btn--gold" href="/admin/productos/editar">Nuevo producto</a>
+    <a class="btn btn--outline" href="/admin/ventas/editar">Registrar venta</a>
   </div>
+  <form class="admin-filters" data-product-filters>
+    <label>Buscar <input type="search" name="q" placeholder="Nombre, código o marca"></label>
+    <label>Categoría
+      <select name="categoria">
+        <option value="">Todas</option>
+      </select>
+    </label>
+    <label>Stock
+      <select name="stock">
+        <option value="">Todos</option>
+        <option value="ok">Con stock</option>
+        <option value="bajo">Stock bajo</option>
+        <option value="agotado">Agotado</option>
+      </select>
+    </label>
+    <label>Destacado
+      <select name="destacado">
+        <option value="">Todos</option>
+        <option value="si">Sí</option>
+        <option value="no">No</option>
+      </select>
+    </label>
+  </form>
+  <p class="muted" data-product-count></p>
   <div style="overflow:auto">
     <table class="admin-table">
       <thead>
@@ -17,6 +43,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
           <th>Categoría</th>
           <th>Precio</th>
           <th>Stock</th>
+          <th>Vendidos</th>
           <th></th>
         </tr>
       </thead>
@@ -27,17 +54,34 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
 
 <script>
   import { requireAdminSession } from '../../../lib/admin';
+  import { writeFilterUrl } from '../../../lib/admin-sales';
   import { formatPrice } from '../../../data/site';
+  import { escapeHtml } from '../../../lib/media/ui';
 
   const gate = await requireAdminSession();
   if (!gate) throw new Error('redirect');
   const { supabase } = gate;
   const alertEl = document.querySelector('[data-admin-alert]');
   const body = document.querySelector('[data-product-rows]');
+  const countEl = document.querySelector('[data-product-count]');
+  const filters = document.querySelector<HTMLFormElement>('[data-product-filters]');
 
-  const [{ data: products, error: productError }, { data: images }] = await Promise.all([
-    supabase.from('products').select('*, categories(nombre)').order('nombre'),
+  type ProductRow = {
+    codigo: string;
+    nombre: string;
+    marca: string;
+    categoria_slug: string;
+    precio_real: number;
+    stock: number;
+    destacado: boolean;
+    categories?: { nombre: string } | { nombre: string }[] | null;
+  };
+
+  const [{ data: products, error: productError }, { data: images }, { data: categories }, soldResult] = await Promise.all([
+    supabase.from('products').select('codigo, nombre, marca, categoria_slug, precio_real, stock, destacado, categories(nombre)').order('nombre'),
     supabase.from('product_images').select('product_codigo, thumb, is_principal, sort_order'),
+    supabase.from('categories').select('slug, nombre').order('orden'),
+    supabase.from('sale_items').select('product_codigo, qty, sales!inner(status)').eq('sales.status', 'vendido'),
   ]);
 
   if (productError && alertEl) {
@@ -46,33 +90,106 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
     alertEl.textContent = productError.message;
   }
 
+  const categorySelect = filters?.elements.namedItem('categoria') as HTMLSelectElement | null;
+  if (categorySelect) {
+    for (const row of categories ?? []) {
+      const option = document.createElement('option');
+      option.value = row.slug;
+      option.textContent = row.nombre;
+      categorySelect.append(option);
+    }
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  if (filters) {
+    const field = (name: string) => filters.elements.namedItem(name) as HTMLInputElement | HTMLSelectElement | null;
+    if (field('q')) field('q')!.value = params.get('q') ?? '';
+    if (field('categoria')) field('categoria')!.value = params.get('categoria') ?? '';
+    if (field('stock')) field('stock')!.value = params.get('stock') ?? '';
+    if (field('destacado')) field('destacado')!.value = params.get('destacado') ?? '';
+  }
+
   const thumbOf = (codigo: string) => {
     const list = (images ?? []).filter((row) => row.product_codigo === codigo);
     return list.find((row) => row.is_principal)?.thumb ?? list[0]?.thumb ?? '';
   };
 
-  const categoryName = (row: { categories?: { nombre: string } | { nombre: string }[] | null }) => {
+  const categoryName = (row: ProductRow) => {
     const related = row.categories;
     if (Array.isArray(related)) return related[0]?.nombre ?? '';
     return related?.nombre ?? '';
   };
 
-  if (body) {
-    body.innerHTML = (products ?? [])
+  const soldOf = new Map<string, number>();
+  for (const row of soldResult.data ?? []) {
+    soldOf.set(row.product_codigo, (soldOf.get(row.product_codigo) ?? 0) + Number(row.qty ?? 0));
+  }
+
+  function stockKind(stock: number) {
+    if (stock <= 0) return 'agotado';
+    if (stock <= 3) return 'bajo';
+    return 'ok';
+  }
+
+  function stockLabel(stock: number) {
+    if (stock <= 0) return 'Agotado';
+    if (stock <= 3) return `Bajo · ${stock}`;
+    return String(stock);
+  }
+
+  function currentFilters() {
+    const data = filters ? new FormData(filters) : new FormData();
+    return {
+      q: String(data.get('q') ?? '').trim(),
+      categoria: String(data.get('categoria') ?? ''),
+      stock: String(data.get('stock') ?? ''),
+      destacado: String(data.get('destacado') ?? ''),
+    };
+  }
+
+  function matches(row: ProductRow, filter: ReturnType<typeof currentFilters>) {
+    if (filter.q) {
+      const haystack = `${row.nombre} ${row.codigo} ${row.marca}`.toLowerCase();
+      if (!haystack.includes(filter.q.toLowerCase())) return false;
+    }
+    if (filter.categoria && row.categoria_slug !== filter.categoria) return false;
+    if (filter.stock && stockKind(row.stock) !== filter.stock) return false;
+    if (filter.destacado === 'si' && !row.destacado) return false;
+    if (filter.destacado === 'no' && row.destacado) return false;
+    return true;
+  }
+
+  function render() {
+    const filter = currentFilters();
+    writeFilterUrl(['q', 'categoria', 'stock', 'destacado'], filter);
+    const rows = ((products ?? []) as ProductRow[]).filter((row) => matches(row, filter));
+    if (countEl) countEl.textContent = `${rows.length} de ${(products ?? []).length} productos`;
+    if (!body) return;
+    if (!rows.length) {
+      body.innerHTML = '<tr><td colspan="8">No hay productos con esos filtros.</td></tr>';
+      return;
+    }
+    body.innerHTML = rows
       .map((row) => {
         const thumb = thumbOf(row.codigo);
+        const kind = stockKind(row.stock);
         return `
           <tr>
-            <td>${thumb ? `<img src="${thumb}" alt="">` : ''}</td>
-            <td>${row.codigo}</td>
-            <td>${row.nombre}${row.destacado ? ' · destacado' : ''}</td>
-            <td>${categoryName(row)}</td>
+            <td>${thumb ? `<img src="${escapeHtml(thumb)}" alt="">` : ''}</td>
+            <td>${escapeHtml(row.codigo)}</td>
+            <td>${escapeHtml(row.nombre)}${row.destacado ? ' · destacado' : ''}</td>
+            <td>${escapeHtml(categoryName(row))}</td>
             <td>${formatPrice(row.precio_real)}</td>
-            <td>${row.stock}</td>
+            <td><span class="admin-stock admin-stock--${kind}">${stockLabel(row.stock)}</span></td>
+            <td>${soldOf.get(row.codigo) ?? 0}</td>
             <td><a href="/admin/productos/editar?codigo=${encodeURIComponent(row.codigo)}">Editar</a></td>
           </tr>
         `;
       })
       .join('');
   }
+
+  filters?.addEventListener('input', render);
+  filters?.addEventListener('change', render);
+  render();
 </script>
