@@ -4,6 +4,7 @@ import '@fontsource/dm-sans/400.css';
 import '@fontsource/dm-sans/500.css';
 import '@fontsource/dm-sans/600.css';
 import '../styles/global.css';
+import AdminNavIcon from '../components/AdminNavIcon.astro';
 import { site } from '../data/site';
 
 interface Props {
@@ -15,16 +16,16 @@ const pathname = Astro.url.pathname;
 const pageTitle = `${title} · Panel ${site.name}`;
 
 const links = [
-  { href: '/admin/panel', label: 'Resumen' },
-  { href: '/admin/inicio', label: 'Inicio' },
-  { href: '/admin/quienes-somos', label: 'Quiénes somos' },
-  { href: '/admin/catalogo', label: 'Catálogo' },
-  { href: '/admin/contacto', label: 'Contacto' },
-  { href: '/admin/categorias', label: 'Categorías' },
-  { href: '/admin/productos', label: 'Productos' },
-  { href: '/admin/clientes', label: 'Clientes' },
-  { href: '/admin/ventas', label: 'Ventas' },
-  { href: '/admin/ajustes', label: 'Ajustes' },
+  { href: '/admin/panel', label: 'Resumen', icon: 'panel' },
+  { href: '/admin/inicio', label: 'Inicio', icon: 'home' },
+  { href: '/admin/quienes-somos', label: 'Quiénes somos', icon: 'about' },
+  { href: '/admin/catalogo', label: 'Catálogo', icon: 'catalog' },
+  { href: '/admin/contacto', label: 'Contacto', icon: 'contact' },
+  { href: '/admin/categorias', label: 'Categorías', icon: 'categories' },
+  { href: '/admin/productos', label: 'Productos', icon: 'products' },
+  { href: '/admin/clientes', label: 'Clientes', icon: 'customers' },
+  { href: '/admin/ventas', label: 'Ventas', icon: 'sales' },
+  { href: '/admin/ajustes', label: 'Ajustes', icon: 'settings' },
 ];
 
 function isActive(href: string) {
@@ -43,31 +44,47 @@ function isActive(href: string) {
     <title>{pageTitle}</title>
   </head>
   <body class="admin-body">
-    <div class="shell">
-      <aside class="shell__nav">
-        <a class="shell__brand" href="/admin/panel">
-          <img src="/logo.png" alt="" width="40" height="40" />
-          <span>{site.name}</span>
-        </a>
+    <div class="shell" data-admin-shell>
+      <button type="button" class="shell__backdrop" data-nav-backdrop aria-label="Cerrar menú"></button>
+      <aside class="shell__nav" data-admin-nav id="admin-nav">
+        <div class="shell__brand-row">
+          <a class="shell__brand" href="/admin/panel">
+            <img src="/logo.png" alt="" width="40" height="40" />
+            <span>{site.name}</span>
+          </a>
+          <button type="button" class="shell__nav-hide" data-nav-toggle aria-controls="admin-nav" aria-expanded="true" aria-label="Ocultar menú" title="Ocultar menú">
+            <AdminNavIcon name="collapse" />
+          </button>
+        </div>
         <nav>
           <ul>
             {
               links.map((link) => (
                 <li>
                   <a href={link.href} class:list={[{ 'is-active': isActive(link.href) }]}>
-                    {link.label}
+                    <AdminNavIcon name={link.icon} />
+                    <span>{link.label}</span>
                   </a>
                 </li>
               ))
             }
           </ul>
         </nav>
-        <a class="shell__store" href="/" target="_blank" rel="noopener noreferrer">Ver tienda</a>
+        <a class="shell__store" href="/" target="_blank" rel="noopener noreferrer">
+          <AdminNavIcon name="store" />
+          <span>Ver tienda</span>
+        </a>
       </aside>
 
       <div class="shell__main">
         <header class="shell__top">
-          <h1>{title}</h1>
+          <div class="shell__top-left">
+            <button type="button" class="shell__menu-btn" data-nav-toggle aria-controls="admin-nav" aria-expanded="true">
+              <AdminNavIcon name="menu" />
+              <span>Menú</span>
+            </button>
+            <h1>{title}</h1>
+          </div>
           <div class="shell__user">
             <span data-admin-email></span>
             <button type="button" data-sign-out>Cerrar sesión</button>
@@ -94,25 +111,55 @@ function isActive(href: string) {
     display: grid;
     grid-template-columns: 16.5rem minmax(0, 1fr);
     min-height: 100dvh;
+    transition: grid-template-columns 0.28s ease;
+  }
+
+  .shell.is-nav-hidden {
+    grid-template-columns: 0 minmax(0, 1fr);
+  }
+
+  .shell__backdrop {
+    display: none;
   }
 
   .shell__nav {
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
+    min-width: 16.5rem;
     padding: 1.35rem 1rem 1.2rem;
     border-right: 1px solid rgb(201 162 39 / 0.16);
     background: #0b0b0b;
+    overflow: hidden;
+  }
+
+  .shell.is-nav-hidden .shell__nav {
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .shell__brand-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.5rem;
   }
 
   .shell__brand {
     display: flex;
     align-items: center;
     gap: 0.7rem;
+    min-width: 0;
+    padding: 0;
     font-family: var(--font-display);
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--color-gold-bright);
+  }
+
+  .shell__brand:hover,
+  .shell__brand.is-active {
+    background: none;
   }
 
   .shell__brand img {
@@ -123,19 +170,34 @@ function isActive(href: string) {
     border-radius: 50%;
   }
 
+  .shell__nav nav {
+    min-height: 0;
+    overflow: auto;
+  }
+
   .shell__nav ul {
     display: grid;
     gap: 0.25rem;
   }
 
   .shell__nav a {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
     padding: 0.7rem 0.85rem;
     border-radius: 2px;
     font-size: 0.78rem;
     letter-spacing: 0.16em;
     text-transform: uppercase;
     color: var(--color-silver);
+  }
+
+  .shell__nav a svg,
+  .shell__nav-hide svg,
+  .shell__menu-btn svg {
+    flex: 0 0 auto;
+    width: 1.15rem;
+    height: 1.15rem;
   }
 
   .shell__nav a:hover,
@@ -147,6 +209,55 @@ function isActive(href: string) {
   .shell__store {
     margin-top: auto;
     color: var(--color-gold) !important;
+  }
+
+  .shell__nav-hide {
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    margin-top: 0.15rem;
+    border: 0;
+    background: transparent;
+    color: var(--color-silver-dim);
+  }
+
+  .shell__nav-hide:hover {
+    color: var(--color-gold-bright);
+    background: rgb(201 162 39 / 0.08);
+  }
+
+  .shell__menu-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.45rem 0.65rem;
+    border: 1px solid rgb(201 162 39 / 0.22);
+    background: #101010;
+    color: var(--color-gold-bright);
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .shell__menu-btn:hover {
+    border-color: var(--color-gold);
+    background: rgb(201 162 39 / 0.08);
+  }
+
+  .shell__top-left {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    min-width: 0;
+  }
+
+  .shell.is-nav-hidden .shell__menu-btn {
+    display: inline-flex;
+  }
+
+  .shell:not(.is-nav-hidden) .shell__menu-btn {
+    display: none;
   }
 
   .shell__main {
@@ -879,15 +990,34 @@ function isActive(href: string) {
     letter-spacing: 0;
   }
 
+  .admin-benefits__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .admin-benefits__pos {
+    display: grid;
+    place-items: center;
+    width: 2.2rem;
+    height: 2.2rem;
+    border: 1px solid rgb(201 162 39 / 0.22);
+    background: #0c0c0c;
+    color: var(--color-gold-bright);
+    font-size: 0.92rem;
+    cursor: grab;
+  }
+
+  .admin-benefits article.is-dragging {
+    opacity: 0.45;
+  }
+
   .admin-benefits__meta {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 0.75rem;
-  }
-
-  .admin-benefits__meta input[type='number'] {
-    width: 4.5rem;
   }
 
   .admin-benefits button {
@@ -1406,9 +1536,212 @@ function isActive(href: string) {
   }
 
   .media-modal [data-media-confirm]:disabled,
-  .media-modal [data-product-confirm]:disabled {
+  .media-modal [data-product-confirm]:disabled,
+  .photo-wizard-modal [data-wizard-accept]:disabled {
     opacity: 0.45;
     pointer-events: none;
+  }
+
+  .photo-wizard-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    background: #070707;
+  }
+
+  .photo-wizard-modal.is-open {
+    display: block;
+  }
+
+  .photo-wizard {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100dvh;
+  }
+
+  .photo-wizard__viewport {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 42dvh;
+    overflow: hidden;
+    background: #101010;
+  }
+
+  .photo-wizard__stage {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.1rem;
+  }
+
+  .photo-wizard__frame {
+    position: relative;
+    width: 0;
+    height: 0;
+    transform-origin: center center;
+    cursor: zoom-in;
+  }
+
+  .photo-wizard__frame.is-zoomed {
+    cursor: zoom-out;
+  }
+
+  .photo-wizard__frame.is-panning {
+    cursor: grabbing;
+  }
+
+  .photo-wizard__frame.is-comparing {
+    cursor: default;
+  }
+
+  .photo-wizard__frame img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: fill;
+    user-select: none;
+    -webkit-user-drag: none;
+  }
+
+  .photo-wizard__overlay {
+    pointer-events: none;
+    position: absolute;
+    inset: 0 0 auto;
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 1rem 1.15rem;
+  }
+
+  .photo-wizard__kicker,
+  .photo-wizard__badge {
+    margin: 0;
+    font-size: 0.68rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--color-gold-bright);
+  }
+
+  .photo-wizard__badge {
+    padding: 0.3rem 0.7rem;
+    border: 1px solid rgb(201 162 39 / 0.4);
+    background: rgb(8 8 8 / 0.8);
+  }
+
+  .photo-wizard__hint {
+    pointer-events: none;
+    position: absolute;
+    inset: auto 0 0;
+    margin: 0;
+    padding: 1.1rem 1.15rem;
+    background: linear-gradient(to top, rgb(7 7 7 / 0.82), transparent);
+    font-size: 0.78rem;
+    color: var(--color-silver-dim);
+  }
+
+  .photo-wizard__aside {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    border-top: 1px solid rgb(201 162 39 / 0.16);
+    background: #0b0b0b;
+  }
+
+  .photo-wizard__header,
+  .photo-wizard__footer {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.85rem;
+    padding: 1rem 1.15rem;
+  }
+
+  .photo-wizard__header {
+    border-bottom: 1px solid rgb(201 162 39 / 0.16);
+  }
+
+  .photo-wizard__header h2 {
+    margin: 0.15rem 0 0;
+    font-size: 1.35rem;
+    color: var(--color-white);
+  }
+
+  .photo-wizard__controls {
+    display: grid;
+    gap: 1.1rem;
+    min-height: 0;
+    overflow: auto;
+    padding: 1.1rem 1.15rem;
+  }
+
+  .photo-wizard__stats,
+  .photo-wizard__note {
+    padding: 0.85rem 0.95rem;
+    border: 1px solid rgb(201 162 39 / 0.16);
+    background: #101010;
+  }
+
+  .photo-wizard__label,
+  .photo-wizard__controls dt {
+    margin: 0;
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-silver-dim);
+  }
+
+  .photo-wizard__stats dl {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    margin: 0.65rem 0 0;
+  }
+
+  .photo-wizard__stats dd {
+    margin: 0.2rem 0 0;
+    color: var(--color-white);
+  }
+
+  .photo-wizard__controls label {
+    display: grid;
+    gap: 0.35rem;
+    margin-top: 0.85rem;
+  }
+
+  .photo-wizard__controls input[type='range'] {
+    width: 100%;
+  }
+
+  .photo-wizard__extra,
+  .photo-wizard__footer .admin-actions {
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  .photo-wizard__footer {
+    flex-direction: column;
+    border-top: 1px solid rgb(201 162 39 / 0.16);
+  }
+
+  @media (min-width: 960px) {
+    .photo-wizard {
+      flex-direction: row;
+    }
+
+    .photo-wizard__viewport {
+      min-height: 0;
+    }
+
+    .photo-wizard__aside {
+      width: min(24rem, 36vw);
+      border-top: 0;
+      border-left: 1px solid rgb(201 162 39 / 0.16);
+    }
   }
 
   .row-2 {
@@ -1442,17 +1775,53 @@ function isActive(href: string) {
   }
 
   @media (max-width: 900px) {
-    .shell {
+    .shell,
+    .shell.is-nav-hidden {
       grid-template-columns: 1fr;
     }
 
-    .shell__nav {
-      border-right: 0;
-      border-bottom: 1px solid rgb(201 162 39 / 0.16);
+    .shell__backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 69;
+      border: 0;
+      background: rgb(0 0 0 / 0.58);
+    }
+
+    .shell.is-nav-open .shell__backdrop {
+      display: block;
+    }
+
+    .shell__nav,
+    .shell.is-nav-hidden .shell__nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      z-index: 70;
+      width: min(18.5rem, 88vw);
+      min-width: 0;
+      visibility: visible;
+      pointer-events: auto;
+      border-right: 1px solid rgb(201 162 39 / 0.16);
+      border-bottom: 0;
+      transform: translateX(-105%);
+      transition: transform 0.28s ease;
+    }
+
+    .shell.is-nav-open .shell__nav {
+      transform: none;
     }
 
     .shell__nav ul {
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns: 1fr;
+    }
+
+    .shell .shell__menu-btn,
+    .shell:not(.is-nav-hidden) .shell__menu-btn,
+    .shell.is-nav-hidden .shell__menu-btn {
+      display: inline-flex;
     }
 
     .admin-grid,
@@ -1484,6 +1853,59 @@ function isActive(href: string) {
   const session = await requireAdminSession();
   const email = document.querySelector('[data-admin-email]');
   if (session && email) email.textContent = session.session.user.email ?? '';
+
+  const shell = document.querySelector<HTMLElement>('[data-admin-shell]');
+  const navToggles = [...document.querySelectorAll<HTMLButtonElement>('[data-nav-toggle]')];
+  const backdrop = document.querySelector<HTMLButtonElement>('[data-nav-backdrop]');
+  const navQuery = window.matchMedia('(max-width: 900px)');
+  const NAV_KEY = 'rb-admin-nav';
+
+  function syncNavButtons() {
+    const mobile = navQuery.matches;
+    const open = mobile ? shell?.classList.contains('is-nav-open') : !shell?.classList.contains('is-nav-hidden');
+    navToggles.forEach((btn) => {
+      btn.setAttribute('aria-expanded', String(Boolean(open)));
+      const label = btn.querySelector('span');
+      if (btn.classList.contains('shell__menu-btn') && label) label.textContent = open && mobile ? 'Cerrar' : 'Menú';
+    });
+  }
+
+  function applyNav() {
+    if (!shell) return;
+    if (navQuery.matches) {
+      shell.classList.remove('is-nav-hidden');
+      shell.classList.remove('is-nav-open');
+      document.body.style.overflow = '';
+    } else {
+      shell.classList.remove('is-nav-open');
+      shell.classList.toggle('is-nav-hidden', localStorage.getItem(NAV_KEY) === 'hidden');
+      document.body.style.overflow = '';
+    }
+    syncNavButtons();
+  }
+
+  function toggleNav() {
+    if (!shell) return;
+    if (navQuery.matches) {
+      const open = !shell.classList.contains('is-nav-open');
+      shell.classList.toggle('is-nav-open', open);
+      document.body.style.overflow = open ? 'hidden' : '';
+    } else {
+      const hidden = !shell.classList.contains('is-nav-hidden');
+      shell.classList.toggle('is-nav-hidden', hidden);
+      localStorage.setItem(NAV_KEY, hidden ? 'hidden' : 'open');
+    }
+    syncNavButtons();
+  }
+
+  applyNav();
+  navQuery.addEventListener('change', applyNav);
+  navToggles.forEach((btn) => btn.addEventListener('click', toggleNav));
+  backdrop?.addEventListener('click', () => {
+    shell?.classList.remove('is-nav-open');
+    document.body.style.overflow = '';
+    syncNavButtons();
+  });
 
   document.querySelector('[data-sign-out]')?.addEventListener('click', async () => {
     await getSupabase().auth.signOut();

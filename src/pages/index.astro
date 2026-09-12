@@ -903,13 +903,13 @@ const orderCopy = await getOrderCopy();
     z-index: 12;
     display: grid;
     place-items: center;
-    width: 5rem;
-    height: 5rem;
+    width: 4rem;
+    height: 4rem;
     border-radius: 50%;
     background: #0a0a0a;
     border: 1px solid rgb(200 200 200 / 0.28);
     color: var(--color-silver);
-    transform: translate(-50%, -50%) translateZ(56px) rotateY(calc(var(--ry) * -1));
+    transform: translate(-50%, -50%) translateZ(36px) rotateY(calc(var(--ry) * -1));
     transition:
       transform var(--cf-duration) cubic-bezier(0.22, 1, 0.36, 1),
       left var(--cf-duration) cubic-bezier(0.22, 1, 0.36, 1),
@@ -920,13 +920,14 @@ const orderCopy = await getOrderCopy();
     pointer-events: none;
   }
 
-  .coverflow__badge svg {
-    width: 1.9rem;
-    height: 1.9rem;
+  .coverflow__badge :global(svg) {
+    width: 2.2rem;
+    height: 2.2rem;
   }
 
   .coverflow__card.is-active .coverflow__badge {
-    left: 1.85rem;
+    left: 3.2rem;
+    transform: translate(-50%, -50%) translateZ(110px) rotateY(calc(var(--ry) * -1));
     border-color: var(--color-gold-bright);
     color: var(--color-gold-bright);
     box-shadow:
@@ -1964,7 +1965,7 @@ const orderCopy = await getOrderCopy();
     track.addEventListener('pointerdown', (event) => {
       if (event.button !== 0) return;
       const target = event.target as HTMLElement | null;
-      if (target?.closest('[data-carousel-prev], [data-carousel-next]')) return;
+      if (target?.closest('[data-carousel-prev], [data-carousel-next], [data-add-to-cart], button')) return;
       pointerId = event.pointerId;
       startX = event.clientX;
       startY = event.clientY;
@@ -1976,11 +1977,6 @@ const orderCopy = await getOrderCopy();
       locked = false;
       swiped = false;
       stopCoast();
-      try {
-        track.setPointerCapture(event.pointerId);
-      } catch {
-        /* capture is optional */
-      }
     });
 
     track.addEventListener('dragstart', (event) => {
@@ -1996,16 +1992,16 @@ const orderCopy = await getOrderCopy();
         if (Math.abs(dy) >= Math.abs(dx)) {
           dragging = false;
           pointerId = null;
-          try {
-            track.releasePointerCapture(event.pointerId);
-          } catch {
-            /* already released */
-          }
           return;
         }
         locked = true;
         swiped = true;
         track.classList.add('is-dragging');
+        try {
+          track.setPointerCapture(event.pointerId);
+        } catch {
+          /* capture is optional */
+        }
       }
       const now = performance.now();
       const dt = Math.max(1, now - lastT);
@@ -2093,54 +2089,58 @@ const orderCopy = await getOrderCopy();
     const stage = root.querySelector<HTMLElement>('.coverflow__stage');
     let startX = 0;
     let dragging = false;
+    let locked = false;
     let swiped = false;
+    let pointerId: number | null = null;
     const SWIPE_THRESHOLD = 42;
     const LOCK_THRESHOLD = 10;
 
-    const stopWindowDrag = () => {
-      window.removeEventListener('pointermove', onWindowMove);
-      window.removeEventListener('pointerup', onWindowUp);
-      window.removeEventListener('pointercancel', onWindowCancel);
-    };
-
-    const onWindowMove = (event: PointerEvent) => {
-      if (!dragging) return;
-      if (Math.abs(event.clientX - startX) > LOCK_THRESHOLD) swiped = true;
-    };
-
-    const onWindowUp = (event: PointerEvent) => {
-      stopWindowDrag();
-      if (!dragging) return;
+    const endDrag = (event: PointerEvent) => {
+      if (!dragging || (pointerId !== null && event.pointerId !== pointerId)) return;
       const delta = event.clientX - startX;
+      const wasLocked = locked;
       dragging = false;
+      locked = false;
+      pointerId = null;
       stage?.classList.remove('is-dragging');
-      if (Math.abs(delta) < SWIPE_THRESHOLD) return;
-      swiped = true;
-      goTo(active + (delta < 0 ? 1 : -1));
-    };
-
-    const onWindowCancel = () => {
-      stopWindowDrag();
-      dragging = false;
-      stage?.classList.remove('is-dragging');
+      if (wasLocked && Math.abs(delta) >= SWIPE_THRESHOLD) {
+        swiped = true;
+        goTo(active + (delta < 0 ? 1 : -1));
+      }
     };
 
     root.addEventListener('pointerdown', (event) => {
       if (event.button !== 0) return;
       const target = event.target as HTMLElement | null;
-      if (target?.closest('[data-coverflow-prev], [data-coverflow-next]')) return;
+      if (target?.closest('[data-coverflow-prev], [data-coverflow-next], [data-coverflow-dot], button')) return;
       dragging = true;
+      locked = false;
       swiped = false;
+      pointerId = event.pointerId;
       startX = event.clientX;
+    });
+
+    root.addEventListener('pointermove', (event) => {
+      if (!dragging || event.pointerId !== pointerId) return;
+      const dx = event.clientX - startX;
+      if (locked || Math.abs(dx) < LOCK_THRESHOLD) return;
+      locked = true;
+      swiped = true;
       stage?.classList.add('is-dragging');
       try {
         root.setPointerCapture(event.pointerId);
       } catch {
-        /* some browsers reject capture on this node */
+        /* capture is optional */
       }
-      window.addEventListener('pointermove', onWindowMove);
-      window.addEventListener('pointerup', onWindowUp);
-      window.addEventListener('pointercancel', onWindowCancel);
+    });
+
+    root.addEventListener('pointerup', endDrag);
+    root.addEventListener('pointercancel', (event) => {
+      if (pointerId !== null && event.pointerId !== pointerId) return;
+      dragging = false;
+      locked = false;
+      pointerId = null;
+      stage?.classList.remove('is-dragging');
     });
 
     root.addEventListener(

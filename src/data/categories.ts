@@ -3,6 +3,7 @@ export type Category = {
   nombre: string;
   descripcion: string;
   imagen: string;
+  imagenThumb?: string;
 };
 
 export const categories: Category[] = [

@@ -25,7 +25,7 @@ import AdminLayout from '../../layouts/AdminLayout.astro';
   </form>
 
   <h2 class="section-title" style="font-size: 1.6rem; margin-top: 2.5rem">Pilares</h2>
-  <p class="muted">Los tres bloques bajo el texto. Puedes añadir, reordenar u ocultar.</p>
+  <p class="muted">Los bloques bajo el texto. Usa Subir / Bajar o arrastra el número para cambiar el orden.</p>
   <div class="admin-actions">
     <button type="button" class="btn btn--outline" data-add-pillar>Añadir pilar</button>
   </div>
@@ -158,22 +158,79 @@ import AdminLayout from '../../layouts/AdminLayout.astro';
       .join('');
   }
 
-  function pillarCard(row: { id: string; title: string; text: string; icon: string; sort_order: number; active: boolean }) {
+  type PillarRow = {
+    id: string;
+    title: string;
+    text: string;
+    icon: string;
+    sort_order: number;
+    active: boolean;
+  };
+
+  function pillarCard(row: PillarRow, index: number, total: number) {
     return `
-      <article data-pillar-id="${row.id}">
+      <article data-pillar-id="${escapeHtml(row.id)}">
+        <div class="admin-benefits__head">
+          <button type="button" class="admin-benefits__pos" data-pillar-drag draggable="true" title="Arrastrar para reordenar" aria-label="Posición ${index + 1}">
+            ${index + 1}
+          </button>
+          <div class="admin-order-btns">
+            <button type="button" data-pillar-move="-1" ${index <= 0 ? 'disabled' : ''}>Subir</button>
+            <button type="button" data-pillar-move="1" ${index >= total - 1 ? 'disabled' : ''}>Bajar</button>
+          </div>
+        </div>
         <div class="row-2">
           <label>Título <input type="text" value="${escapeHtml(row.title)}" data-pillar-title></label>
           <label>Icono <select data-pillar-icon>${iconSelect(sanitizeBenefitIcon(row.icon))}</select></label>
         </div>
         <label>Texto <input type="text" value="${escapeHtml(row.text)}" data-pillar-text></label>
         <div class="admin-benefits__meta">
-          <input type="number" value="${row.sort_order}" data-pillar-order>
           <label class="admin-check"><input type="checkbox" data-pillar-active ${row.active ? 'checked' : ''}> Visible</label>
           <button type="button" data-pillar-save>Guardar</button>
           <button type="button" data-pillar-delete>Quitar</button>
         </div>
       </article>
     `;
+  }
+
+  function readPillars(): PillarRow[] {
+    if (!pillarsList) return [];
+    return [...pillarsList.querySelectorAll<HTMLElement>('[data-pillar-id]')].map((card, index) => ({
+      id: card.dataset.pillarId ?? '',
+      title: card.querySelector<HTMLInputElement>('[data-pillar-title]')?.value ?? '',
+      text: card.querySelector<HTMLInputElement>('[data-pillar-text]')?.value ?? '',
+      icon: sanitizeBenefitIcon(card.querySelector<HTMLSelectElement>('[data-pillar-icon]')?.value ?? 'shield'),
+      sort_order: index,
+      active: card.querySelector<HTMLInputElement>('[data-pillar-active]')?.checked ?? true,
+    }));
+  }
+
+  function paintPillars(rows: PillarRow[]) {
+    if (!pillarsList) return;
+    pillarsList.innerHTML = rows.map((row, index) => pillarCard(row, index, rows.length)).join('');
+  }
+
+  async function persistPillarOrder(rows: PillarRow[]) {
+    const results = await Promise.all(
+      rows.map((row, index) => supabase.from('about_pillars').update({ sort_order: index }).eq('id', row.id)),
+    );
+    const failed = results.find((result) => result.error);
+    if (failed?.error) throw failed.error;
+  }
+
+  async function movePillar(id: string, delta: number) {
+    const rows = readPillars();
+    const index = rows.findIndex((row) => row.id === id);
+    const nextIndex = index + delta;
+    if (index < 0 || nextIndex < 0 || nextIndex >= rows.length) return;
+    [rows[index], rows[nextIndex]] = [rows[nextIndex], rows[index]];
+    paintPillars(rows);
+    try {
+      await persistPillarOrder(rows);
+    } catch (error) {
+      show(error instanceof Error ? error.message : 'No se pudo reordenar.', true);
+      await renderPillars();
+    }
   }
 
   async function renderPillars() {
@@ -193,10 +250,10 @@ import AdminLayout from '../../layouts/AdminLayout.astro';
         show(insertError.message, true);
         return;
       }
-      if (pillarsList) pillarsList.innerHTML = (inserted ?? []).map((row) => pillarCard(row as never)).join('');
+      paintPillars((inserted ?? []) as PillarRow[]);
       return;
     }
-    if (pillarsList) pillarsList.innerHTML = data.map((row) => pillarCard(row as never)).join('');
+    paintPillars(data as PillarRow[]);
   }
 
   document.querySelector('[data-add-pillar]')?.addEventListener('click', async () => {
@@ -221,11 +278,17 @@ import AdminLayout from '../../layouts/AdminLayout.astro';
     if (!card) return;
     const id = card.dataset.pillarId!;
 
+    if (target.closest('[data-pillar-move]')) {
+      const delta = Number((target.closest('[data-pillar-move]') as HTMLElement).dataset.pillarMove);
+      await movePillar(id, delta);
+      return;
+    }
+
     if (target.closest('[data-pillar-save]')) {
       const title = card.querySelector<HTMLInputElement>('[data-pillar-title]')?.value.trim() ?? '';
       const text = card.querySelector<HTMLInputElement>('[data-pillar-text]')?.value.trim() ?? '';
       const icon = sanitizeBenefitIcon(card.querySelector<HTMLSelectElement>('[data-pillar-icon]')?.value ?? 'shield');
-      const sort_order = Number(card.querySelector<HTMLInputElement>('[data-pillar-order]')?.value ?? 0);
+      const sort_order = readPillars().findIndex((row) => row.id === id);
       const active = card.querySelector<HTMLInputElement>('[data-pillar-active]')?.checked ?? true;
       if (!title) {
         show('El título del pilar no puede estar vacío.', true);
@@ -245,6 +308,58 @@ import AdminLayout from '../../layouts/AdminLayout.astro';
         show('Pilar quitado.');
       }
     }
+  });
+
+  function refreshPillarPositions() {
+    if (!pillarsList) return;
+    const cards = [...pillarsList.querySelectorAll<HTMLElement>('[data-pillar-id]')];
+    cards.forEach((card, index) => {
+      const pos = card.querySelector('[data-pillar-drag]');
+      if (pos) {
+        pos.textContent = String(index + 1);
+        pos.setAttribute('aria-label', `Posición ${index + 1}`);
+      }
+      const up = card.querySelector<HTMLButtonElement>('[data-pillar-move="-1"]');
+      const down = card.querySelector<HTMLButtonElement>('[data-pillar-move="1"]');
+      if (up) up.disabled = index === 0;
+      if (down) down.disabled = index === cards.length - 1;
+    });
+  }
+
+  pillarsList?.addEventListener('dragstart', (event) => {
+    const handle = (event.target as HTMLElement).closest('[data-pillar-drag]');
+    const card = handle?.closest<HTMLElement>('[data-pillar-id]');
+    if (!card || !event.dataTransfer) {
+      event.preventDefault();
+      return;
+    }
+    event.dataTransfer.effectAllowed = 'move';
+    card.classList.add('is-dragging');
+  });
+
+  pillarsList?.addEventListener('dragend', async () => {
+    pillarsList.querySelectorAll('.is-dragging').forEach((el) => el.classList.remove('is-dragging'));
+    refreshPillarPositions();
+    try {
+      await persistPillarOrder(readPillars());
+    } catch (error) {
+      show(error instanceof Error ? error.message : 'No se pudo reordenar.', true);
+      await renderPillars();
+    }
+  });
+
+  pillarsList?.addEventListener('dragover', (event) => {
+    const over = (event.target as HTMLElement).closest<HTMLElement>('[data-pillar-id]');
+    const dragging = pillarsList.querySelector<HTMLElement>('.is-dragging');
+    if (!over || !dragging || over === dragging) return;
+    event.preventDefault();
+    const cards = [...pillarsList.querySelectorAll<HTMLElement>('[data-pillar-id]')];
+    const overIndex = cards.indexOf(over);
+    const dragIndex = cards.indexOf(dragging);
+    if (overIndex < 0 || dragIndex < 0) return;
+    if (dragIndex < overIndex) over.after(dragging);
+    else over.before(dragging);
+    refreshPillarPositions();
   });
 
   await loadCopy();

@@ -16,6 +16,7 @@ type CategoryRow = {
   nombre: string;
   descripcion: string;
   imagen: string;
+  imagen_thumb?: string | null;
 };
 
 type ProductRow = {
@@ -89,7 +90,7 @@ async function fetchRemoteCatalog(): Promise<{ categories: Category[]; products:
     const supabase = getSupabase();
     const [{ data: categoryRows, error: categoryError }, { data: productRows, error: productError }, { data: imageRows, error: imageError }] =
       await Promise.all([
-        supabase.from('categories').select('slug, nombre, descripcion, imagen').order('orden'),
+        supabase.from('categories').select('slug, nombre, descripcion, imagen, imagen_thumb').order('orden'),
         supabase.from('products').select('*, categories(nombre)'),
         supabase.from('product_images').select('product_codigo, thumb, full_url, alt, sort_order, is_principal').order('sort_order'),
       ]);
@@ -98,7 +99,13 @@ async function fetchRemoteCatalog(): Promise<{ categories: Category[]; products:
     if (!categoryRows?.length || !productRows?.length) return null;
 
     return {
-      categories: categoryRows as Category[],
+      categories: (categoryRows as CategoryRow[]).map((row) => ({
+        slug: row.slug,
+        nombre: row.nombre,
+        descripcion: row.descripcion,
+        imagen: row.imagen,
+        imagenThumb: row.imagen_thumb || row.imagen,
+      })),
       products: (productRows as ProductRow[]).map((row) => mapProduct(row, (imageRows ?? []) as ImageRow[])),
     };
   } catch {

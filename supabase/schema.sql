@@ -6,6 +6,7 @@ create table if not exists public.categories (
   nombre text not null,
   descripcion text not null,
   imagen text not null,
+  imagen_thumb text,
   orden integer not null default 0
 );
 

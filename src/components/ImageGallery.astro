@@ -15,6 +15,9 @@ const { images, productName } = Astro.props;
       type="button"
       class="gallery__main"
       data-gallery-main
+      data-thumb={images[0]?.thumb}
+      data-full={images[0]?.full}
+      data-alt={images[0]?.alt ?? productName}
       aria-label={`Ampliar imagen de ${productName}`}
     >
       <img
@@ -329,8 +332,12 @@ const { images, productName } = Astro.props;
     place-items: center;
     overflow: hidden;
     background: #080808;
-    cursor: zoom-in;
+    cursor: default;
     touch-action: none;
+  }
+
+  .lightbox__stage.is-zoom-ready {
+    cursor: zoom-in;
   }
 
   .lightbox__stage.is-zoomed {
@@ -486,6 +493,7 @@ const { images, productName } = Astro.props;
     const nextBtn = root.querySelector<HTMLButtonElement>('[data-lightbox-next]');
     const galleryPrev = root.querySelector<HTMLButtonElement>('[data-gallery-prev]');
     const galleryNext = root.querySelector<HTMLButtonElement>('[data-gallery-next]');
+    const counter = root.querySelector<HTMLElement>('[data-lightbox-counter]');
 
     if (!mainBtn || !thumbImg || !dialog || !frame || !stage || !fullImg || !spinner || !closeBtn) return;
 
@@ -493,14 +501,14 @@ const { images, productName } = Astro.props;
       selects.length > 0
         ? selects.map((btn) => ({
             thumb: btn.dataset.thumb ?? '',
-            full: btn.dataset.full ?? '',
+            full: btn.dataset.full ?? btn.dataset.thumb ?? '',
             alt: btn.dataset.alt ?? '',
           }))
         : [
             {
-              thumb: thumbImg.src,
-              full: thumbImg.src,
-              alt: thumbImg.alt,
+              thumb: mainBtn.dataset.thumb || thumbImg.getAttribute('src') || '',
+              full: mainBtn.dataset.full || mainBtn.dataset.thumb || thumbImg.getAttribute('src') || '',
+              alt: mainBtn.dataset.alt || thumbImg.alt,
             },
           ];
 
@@ -515,6 +523,8 @@ const { images, productName } = Astro.props;
     let startY = 0;
     let originX = 0;
     let originY = 0;
+    let loadToken = 0;
+    let zoomReady = false;
     const MIN_ZOOM = 1;
     const MAX_ZOOM = 3;
     const CLICK_ZOOM = 1.85;
@@ -538,6 +548,11 @@ const { images, productName } = Astro.props;
       document.body.style.paddingRight = '';
     };
 
+    const setZoomReady = (ready: boolean) => {
+      zoomReady = ready;
+      stage.classList.toggle('is-zoom-ready', ready);
+    };
+
     const resetView = () => {
       zoom = 1;
       panX = 0;
@@ -546,6 +561,36 @@ const { images, productName } = Astro.props;
       moved = false;
       stage.classList.remove('is-zoomed', 'is-panning');
       applyView();
+    };
+
+    const preload = (src: string) =>
+      new Promise<void>((resolve, reject) => {
+        const loader = new Image();
+        loader.onload = () => resolve();
+        loader.onerror = () => reject(new Error('No se pudo cargar la imagen'));
+        loader.src = src;
+      });
+
+    const promoteToFull = async (full: string, token: number) => {
+      try {
+        await preload(full);
+        if (token !== loadToken) return;
+        const alreadyShowing =
+          fullImg.currentSrc === full || fullImg.src === full || fullImg.getAttribute('src') === full;
+        if (!alreadyShowing) {
+          fullImg.src = full;
+          try {
+            await fullImg.decode();
+          } catch {
+            /* ignore */
+          }
+          if (token !== loadToken) return;
+        }
+        setZoomReady(true);
+      } catch {
+        if (token !== loadToken) return;
+        setZoomReady(true);
+      }
     };
 
     const applyView = () => {
@@ -563,6 +608,7 @@ const { images, productName } = Astro.props;
     };
 
     const setZoom = (value: number) => {
+      if (!zoomReady) return;
       zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value));
       if (zoom <= MIN_ZOOM + 0.01) {
         zoom = 1;
@@ -591,30 +637,55 @@ const { images, productName } = Astro.props;
       counter.textContent = slides.length > 1 ? `${index + 1} / ${slides.length}` : '';
     };
 
-    const loadImage = (direction = 0) => {
+    const loadImage = (_direction = 0) => {
       const slide = slides[index];
       if (!slide) return;
+      const token = ++loadToken;
+      const thumb = slide.thumb || slide.full;
+      const full = slide.full || slide.thumb;
 
+      setZoomReady(false);
       fullImg.classList.remove('is-ready');
       spinner.classList.remove('is-hidden');
       resetView();
       updateCounter();
       syncThumbs();
 
-      const applySrc = () => {
-        fullImg.src = slide.full;
+      const revealThumb = () => {
+        if (token !== loadToken) return;
+        fullImg.src = thumb;
         fullImg.alt = slide.alt;
         requestAnimationFrame(() => fullImg.classList.add('is-ready'));
         spinner.classList.add('is-hidden');
+        if (!full || full === thumb) {
+          setZoomReady(true);
+          return;
+        }
+        void promoteToFull(full, token);
       };
 
-      const loader = new Image();
-      loader.onload = applySrc;
-      loader.onerror = () => {
+      if (!thumb) {
         spinner.classList.add('is-hidden');
         fullImg.alt = 'No se pudo cargar la imagen';
+        return;
+      }
+
+      const loader = new Image();
+      loader.onload = revealThumb;
+      loader.onerror = () => {
+        if (token !== loadToken) return;
+        spinner.classList.add('is-hidden');
+        if (full && full !== thumb) {
+          void promoteToFull(full, token).then(() => {
+            if (token !== loadToken) return;
+            fullImg.alt = slide.alt;
+            fullImg.classList.add('is-ready');
+          });
+          return;
+        }
+        fullImg.alt = 'No se pudo cargar la imagen';
       };
-      loader.src = slide.full;
+      loader.src = thumb;
     };
 
     const goTo = (nextIndex: number, direction = 0) => {
@@ -627,6 +698,7 @@ const { images, productName } = Astro.props;
     const openLightbox = () => {
       closing = false;
       dialog.classList.remove('is-closing');
+      setZoomReady(false);
       fullImg.classList.remove('is-ready');
       spinner.classList.remove('is-hidden');
       resetView();
@@ -640,9 +712,11 @@ const { images, productName } = Astro.props;
       closing = true;
       dialog.classList.add('is-closing');
       const end = () => {
+        loadToken += 1;
         dialog.close();
         dialog.classList.remove('is-closing');
         resetView();
+        setZoomReady(false);
         fullImg.classList.remove('is-ready');
         fullImg.removeAttribute('src');
         closing = false;
@@ -690,7 +764,7 @@ const { images, productName } = Astro.props;
     frame.addEventListener('click', (event) => event.stopPropagation());
 
     stage.addEventListener('pointerdown', (event) => {
-      if (zoom <= 1 || event.button !== 0) return;
+      if (!zoomReady || zoom <= 1 || event.button !== 0) return;
       drag = true;
       moved = false;
       startX = event.clientX;
@@ -722,6 +796,7 @@ const { images, productName } = Astro.props;
     stage.addEventListener('pointercancel', endPan);
 
     stage.addEventListener('click', (event) => {
+      if (!zoomReady) return;
       if (event.target !== fullImg && event.target !== stage) return;
       if (moved) {
         moved = false;
@@ -735,6 +810,7 @@ const { images, productName } = Astro.props;
       (event) => {
         event.preventDefault();
         event.stopPropagation();
+        if (!zoomReady) return;
         const step = event.deltaY > 0 ? -0.16 : 0.16;
         setZoom(zoom + step);
       },

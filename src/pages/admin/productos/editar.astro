@@ -43,9 +43,10 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
 
   <section data-gallery-wrap hidden>
     <h2 class="section-title" style="font-size: 1.5rem; margin-top: 2rem">Galería</h2>
-    <p class="muted">Puedes reutilizar fotos de la biblioteca o subir una nueva a la carpeta del producto.</p>
+    <p class="muted">La ficha usa la miniatura. El zoom del catálogo carga la imagen completa.</p>
     <div class="admin-actions">
       <button type="button" class="btn btn--outline" data-add-image>Añadir foto</button>
+      <button type="button" class="btn btn--outline" data-backfill-thumbs hidden>Generar miniaturas faltantes</button>
     </div>
     <div class="admin-gallery" data-gallery></div>
   </section>
@@ -58,7 +59,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
 <script>
   import { requireAdminSession, slugify } from '../../../lib/admin';
   import { MAX_PRODUCT_SPECS, sanitizeProductSpecs, specIconOptions, type ProductSpec } from '../../../lib/product-specs';
-  import { openMediaModal } from '../../../lib/media/media-picker';
+  import { generateAndUploadThumb, openEditPhotoWizard, startAddPhotoWizard } from '../../../lib/media/photo-wizard';
   import { escapeHtml } from '../../../lib/media/ui';
 
   const gate = await requireAdminSession();
@@ -72,6 +73,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
   const deleteBtn = document.querySelector<HTMLButtonElement>('[data-delete]');
   const galleryWrap = document.querySelector('[data-gallery-wrap]');
   const gallery = document.querySelector('[data-gallery]');
+  const backfillBtn = document.querySelector<HTMLButtonElement>('[data-backfill-thumbs]');
   const soldWrap = document.querySelector('[data-sold-wrap]');
   const soldList = document.querySelector('[data-sold-list]');
   const select = form.querySelector<HTMLSelectElement>('[name="categoria_slug"]')!;
@@ -257,16 +259,22 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
       .select('*')
       .eq('product_codigo', existingCodigo)
       .order('sort_order');
-    gallery.innerHTML = (data ?? [])
-      .map(
-        (row) => `
-        <article data-image-id="${row.id}">
-          <img src="${escapeHtml(row.thumb)}" alt="">
+    const rows = data ?? [];
+    const missing = rows.filter((row) => !row.thumb || row.thumb === row.full_url).length;
+    if (backfillBtn) backfillBtn.hidden = missing === 0;
+    gallery.innerHTML = rows
+      .map((row) => {
+        const needsThumb = !row.thumb || row.thumb === row.full_url;
+        return `
+        <article data-image-id="${escapeHtml(row.id)}" data-thumb="${escapeHtml(row.thumb ?? '')}" data-full="${escapeHtml(row.full_url ?? '')}">
+          <img src="${escapeHtml(row.thumb || row.full_url)}" alt="">
+          ${needsThumb ? '<span class="admin-table-sub">Sin miniatura</span>' : ''}
           <label class="admin-check"><input type="radio" name="principal" ${row.is_principal ? 'checked' : ''} data-make-principal> Principal</label>
+          <button type="button" data-review-thumb>Revisar miniatura</button>
           <button type="button" data-remove-image>Quitar</button>
         </article>
-      `,
-      )
+      `;
+      })
       .join('');
   }
 
@@ -309,10 +317,9 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
 
   document.querySelector('[data-add-image]')?.addEventListener('click', () => {
     if (!existingCodigo) return;
-    openMediaModal({
+    startAddPhotoWizard({
       folder: `products/${existingCodigo}`,
-      title: 'Añadir foto',
-      onSelect: async (url) => {
+      onDone: async ({ fullUrl, thumbUrl }) => {
         const { count } = await supabase
           .from('product_images')
           .select('*', { count: 'exact', head: true })
@@ -320,8 +327,8 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
         const order = count ?? 0;
         const { error } = await supabase.from('product_images').insert({
           product_codigo: existingCodigo,
-          thumb: url,
-          full_url: url,
+          thumb: thumbUrl,
+          full_url: fullUrl,
           alt: nombreInput.value || existingCodigo,
           sort_order: order,
           is_principal: order === 0,
@@ -335,11 +342,58 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
     });
   });
 
+  backfillBtn?.addEventListener('click', async () => {
+    if (!existingCodigo) return;
+    const { data } = await supabase
+      .from('product_images')
+      .select('id, thumb, full_url')
+      .eq('product_codigo', existingCodigo);
+    const missing = (data ?? []).filter((row) => row.full_url && (!row.thumb || row.thumb === row.full_url));
+    if (!missing.length) {
+      show('Todas las fotos ya tienen miniatura.');
+      return;
+    }
+    backfillBtn.disabled = true;
+    try {
+      for (const row of missing) {
+        const thumbUrl = await generateAndUploadThumb(row.full_url, `products/${existingCodigo}`);
+        const { error } = await supabase.from('product_images').update({ thumb: thumbUrl }).eq('id', row.id);
+        if (error) throw error;
+      }
+      await renderGallery();
+      show(`Se generaron ${missing.length} miniaturas.`);
+    } catch (error) {
+      show(error instanceof Error ? error.message : 'No se pudieron generar las miniaturas.', true);
+    } finally {
+      backfillBtn.disabled = false;
+    }
+  });
+
   gallery?.addEventListener('click', async (event) => {
     const target = event.target as HTMLElement;
     const card = target.closest<HTMLElement>('[data-image-id]');
     if (!card || !existingCodigo) return;
     const id = card.dataset.imageId!;
+
+    if (target.closest('[data-review-thumb]')) {
+      openEditPhotoWizard({
+        folder: `products/${existingCodigo}`,
+        fullUrl: card.dataset.full || '',
+        thumbUrl: card.dataset.thumb || '',
+        onDone: async ({ fullUrl, thumbUrl }) => {
+          const { error } = await supabase
+            .from('product_images')
+            .update({ thumb: thumbUrl, full_url: fullUrl })
+            .eq('id', id);
+          if (error) show(error.message, true);
+          else {
+            await renderGallery();
+            show('Miniatura actualizada.');
+          }
+        },
+      });
+      return;
+    }
 
     if (target.closest('[data-remove-image]')) {
       await supabase.from('product_images').delete().eq('id', id);

@@ -23,6 +23,14 @@ import AdminLayout from '../../layouts/AdminLayout.astro';
     </a>
   </div>
   <section class="admin-panel-block">
+    <h2 class="section-title">Miniaturas</h2>
+    <p class="muted">Mismo generador que Miju: canvas ~640px. Las fotos que aún usan la imagen completa aparecen aquí.</p>
+    <p class="muted" data-thumb-status>Revisando…</p>
+    <div class="admin-actions">
+      <button type="button" class="btn btn--outline" data-backfill-thumbs hidden>Generar miniaturas faltantes</button>
+    </div>
+  </section>
+  <section class="admin-panel-block">
     <h2 class="section-title">Stock bajo</h2>
     <p class="muted">Piezas con 3 o menos unidades. <a href="/admin/productos?stock=bajo">Ver en Productos</a></p>
     <div class="admin-history" data-low-list></div>
@@ -37,6 +45,7 @@ import AdminLayout from '../../layouts/AdminLayout.astro';
   import { requireAdminSession } from '../../lib/admin';
   import { saleInPeriod, saleStatusLabel, saleTotal } from '../../lib/admin-sales';
   import { formatPrice } from '../../data/site';
+  import { generateAndUploadThumb, missingThumb } from '../../lib/media/photo-wizard';
   import { escapeHtml } from '../../lib/media/ui';
 
   const gate = await requireAdminSession();
@@ -45,6 +54,8 @@ import AdminLayout from '../../layouts/AdminLayout.astro';
   const alertEl = document.querySelector('[data-admin-alert]');
   const lowList = document.querySelector('[data-low-list]');
   const recentList = document.querySelector('[data-recent-sales]');
+  const thumbStatus = document.querySelector('[data-thumb-status]');
+  const backfillBtn = document.querySelector<HTMLButtonElement>('[data-backfill-thumbs]');
 
   type SaleRow = {
     id: string;
@@ -115,6 +126,65 @@ import AdminLayout from '../../layouts/AdminLayout.astro';
         .join('');
     }
   }
+
+  type ProductImageRow = { id: string; product_codigo: string; thumb: string; full_url: string };
+  type CategoryThumbRow = { slug: string; imagen: string; imagen_thumb?: string | null };
+  type HeroThumbRow = { id: string; image_url: string; thumb_url?: string | null };
+
+  const [{ data: productImages }, { data: categoryThumbs }, { data: heroThumbs }] = await Promise.all([
+    supabase.from('product_images').select('id, product_codigo, thumb, full_url'),
+    supabase.from('categories').select('slug, imagen, imagen_thumb'),
+    supabase.from('hero_slides').select('id, image_url, thumb_url'),
+  ]);
+
+  const missingProducts = ((productImages ?? []) as ProductImageRow[]).filter((row) => missingThumb(row.thumb, row.full_url));
+  const missingCategories = ((categoryThumbs ?? []) as CategoryThumbRow[]).filter((row) =>
+    missingThumb(row.imagen_thumb, row.imagen),
+  );
+  const missingHero = ((heroThumbs ?? []) as HeroThumbRow[]).filter((row) => missingThumb(row.thumb_url, row.image_url));
+  const missingTotal = missingProducts.length + missingCategories.length + missingHero.length;
+
+  if (thumbStatus) {
+    thumbStatus.textContent = missingTotal
+      ? `${missingProducts.length} fotos de producto · ${missingCategories.length} colecciones · ${missingHero.length} slides del hero`
+      : 'Todas las fotos del catálogo y el hero ya tienen miniatura.';
+  }
+  if (backfillBtn) backfillBtn.hidden = missingTotal === 0;
+
+  backfillBtn?.addEventListener('click', async () => {
+    backfillBtn.disabled = true;
+    try {
+      for (const row of missingProducts) {
+        const thumbUrl = await generateAndUploadThumb(row.full_url, `products/${row.product_codigo}`);
+        const { error } = await supabase.from('product_images').update({ thumb: thumbUrl }).eq('id', row.id);
+        if (error) throw error;
+      }
+      for (const row of missingCategories) {
+        const thumbUrl = await generateAndUploadThumb(row.imagen, 'categories');
+        const { error } = await supabase.from('categories').update({ imagen_thumb: thumbUrl }).eq('slug', row.slug);
+        if (error) throw error;
+      }
+      for (const row of missingHero) {
+        const thumbUrl = await generateAndUploadThumb(row.image_url, 'hero');
+        const { error } = await supabase.from('hero_slides').update({ thumb_url: thumbUrl }).eq('id', row.id);
+        if (error) throw error;
+      }
+      if (thumbStatus) thumbStatus.textContent = `Se generaron ${missingTotal} miniaturas.`;
+      backfillBtn.hidden = true;
+      if (alertEl) {
+        alertEl.hidden = false;
+        alertEl.classList.remove('is-error');
+        alertEl.textContent = 'Miniaturas generadas.';
+      }
+    } catch (error) {
+      backfillBtn.disabled = false;
+      if (alertEl) {
+        alertEl.hidden = false;
+        alertEl.classList.add('is-error');
+        alertEl.textContent = error instanceof Error ? error.message : 'No se pudieron generar las miniaturas.';
+      }
+    }
+  });
 
   if (alertEl && (productError || (salesError && !String(salesError.message).includes('sales')))) {
     alertEl.hidden = false;

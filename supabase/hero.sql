@@ -9,6 +9,7 @@ create table if not exists public.hero_slides (
   id uuid primary key default gen_random_uuid(),
   storage_path text not null unique,
   image_url text not null,
+  thumb_url text,
   alt text not null default '',
   sort_order integer not null default 0,
   active boolean not null default true

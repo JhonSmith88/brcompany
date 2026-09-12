@@ -38,7 +38,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
   import { requireAdminSession, slugify } from '../../../lib/admin';
   import { bindRoutePickers, loadSiteRoutes, pickerHref, routePickerHtml, setPickerHref } from '../../../lib/admin-routes';
   import { categoryHref, sanitizeVitrinaIcon, vitrinaIconOptions } from '../../../lib/home';
-  import { bindMediaFields, mediaFieldHtml } from '../../../lib/media/media-picker';
+  import { bindPhotoFields, photoFieldHtml } from '../../../lib/media/photo-field';
   import { formatPrice } from '../../../data/site';
   import { escapeHtml } from '../../../lib/media/ui';
 
@@ -73,7 +73,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
     .map((option) => `<option value="${option.value}">${option.label}</option>`)
     .join('');
 
-  function setSlots(slug: string, enlace: string, imagen: string) {
+  function setSlots(slug: string, enlace: string, imagen: string, imagenThumb = '') {
     if (enlaceSlot) {
       enlaceSlot.innerHTML = routePickerHtml({
         label: 'Enlace de la vitrina',
@@ -84,14 +84,16 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
       bindRoutePickers(enlaceSlot);
     }
     if (imagenSlot) {
-      imagenSlot.innerHTML = mediaFieldHtml({
-        name: 'imagen',
-        label: 'Imagen',
-        value: imagen,
+      imagenSlot.innerHTML = photoFieldHtml({
         folder: 'categories',
+        label: 'Imagen',
+        fullName: 'imagen',
+        thumbName: 'imagen_thumb',
+        fullUrl: imagen,
+        thumbUrl: imagenThumb,
         required: true,
       });
-      bindMediaFields(imagenSlot);
+      bindPhotoFields(imagenSlot);
     }
   }
 
@@ -146,7 +148,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
       (form.elements.namedItem('orden') as HTMLInputElement).value = String(data.orden ?? 1);
       iconSelect.value = sanitizeVitrinaIcon(data.icono ?? '', data.slug);
       (form.elements.namedItem('en_vitrina') as HTMLInputElement).checked = data.en_vitrina !== false;
-      setSlots(data.slug, data.enlace ?? '', data.imagen ?? '');
+      setSlots(data.slug, data.enlace ?? '', data.imagen ?? '', data.imagen_thumb ?? '');
       if (deleteBtn) deleteBtn.hidden = false;
       syncPublic(data.slug);
       await loadProducts(data.slug);
@@ -171,6 +173,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
     const nombre = String(payload.get('nombre') ?? '').trim();
     const descripcion = String(payload.get('descripcion') ?? '').trim();
     const imagen = String(payload.get('imagen') ?? '').trim();
+    const imagen_thumb = String(payload.get('imagen_thumb') ?? '').trim() || imagen;
     const orden = Number(payload.get('orden') ?? 0);
     if (!nombre || !slug) {
       show('Nombre y slug son obligatorios.', true);
@@ -185,6 +188,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
       nombre,
       descripcion,
       imagen,
+      imagen_thumb,
       orden,
       icono: sanitizeVitrinaIcon(String(payload.get('icono') ?? ''), slug),
       enlace: categoryHref(slug, pickerHref(form, `/catalogo/${slug}`).replace(/\/catalogo\/?$/, `/catalogo/${slug}`)),

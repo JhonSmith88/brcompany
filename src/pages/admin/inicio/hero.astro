@@ -17,7 +17,7 @@ import AdminHomeLayout from '../../../layouts/AdminHomeLayout.astro';
   </form>
 
   <h2 class="section-title" style="font-size: 1.6rem; margin-top: 2.5rem">Fotos</h2>
-  <p class="muted">Elige de la biblioteca o sube una foto nueva. Las imágenes se reutilizan desde Storage.</p>
+    <p class="muted">El asistente genera la miniatura (listados) y guarda la imagen completa para el carrusel.</p>
   <div class="admin-actions">
     <button type="button" class="btn btn--outline" data-add-hero>Añadir slide</button>
   </div>
@@ -29,7 +29,7 @@ import AdminHomeLayout from '../../../layouts/AdminHomeLayout.astro';
   import { showAdminAlert } from '../../../lib/admin-home';
   import { bindRoutePickers, loadSiteRoutes, pickerHref, routePickerHtml, setPickerHref, type SiteRoute } from '../../../lib/admin-routes';
   import { defaultHeroCopy, safeHeroHref } from '../../../lib/home';
-  import { openMediaModal } from '../../../lib/media/media-picker';
+  import { missingThumb, openEditPhotoWizard, startAddPhotoWizard } from '../../../lib/media/photo-wizard';
   import { escapeHtml } from '../../../lib/media/ui';
 
   const gate = await requireAdminSession();
@@ -149,14 +149,18 @@ import AdminHomeLayout from '../../../layouts/AdminHomeLayout.astro';
   function heroCard(row: {
     id: string;
     image_url: string;
+    thumb_url?: string | null;
     alt: string;
     sort_order: number;
     active: boolean;
   }) {
+    const preview = row.thumb_url || row.image_url;
+    const needs = missingThumb(row.thumb_url, row.image_url);
     return `
-      <article class="admin-hero-slide" data-hero-id="${row.id}">
+      <article class="admin-hero-slide" data-hero-id="${row.id}" data-full="${escapeHtml(row.image_url)}" data-thumb="${escapeHtml(row.thumb_url ?? '')}">
         <div class="admin-hero-slide__preview">
-          <img src="${escapeHtml(row.image_url)}" alt="">
+          <img src="${escapeHtml(preview)}" alt="">
+          ${needs ? '<span class="admin-table-sub">Sin miniatura</span>' : ''}
         </div>
         <div class="admin-hero-slide__fields">
           <label>Texto alternativo <input type="text" value="${escapeHtml(row.alt)}" data-hero-alt></label>
@@ -179,37 +183,55 @@ import AdminHomeLayout from '../../../layouts/AdminHomeLayout.astro';
     if (heroList) heroList.innerHTML = rows.map((row) => heroCard(row as never)).join('');
   }
 
+  async function saveHeroImage(fullUrl: string, thumbUrl: string, id?: string) {
+    const realPath = storagePathFromUrl(fullUrl);
+    if (!realPath) {
+      show('La imagen debe estar en Storage.', true);
+      return;
+    }
+    try {
+      if (id) {
+        let { error } = await supabase
+          .from('hero_slides')
+          .update({ storage_path: realPath, image_url: fullUrl, thumb_url: thumbUrl })
+          .eq('id', id);
+        if (error?.code === '23505') {
+          ({ error } = await supabase
+            .from('hero_slides')
+            .update({ storage_path: `hero/ref-${Date.now()}`, image_url: fullUrl, thumb_url: thumbUrl })
+            .eq('id', id));
+        }
+        if (error) throw error;
+        await renderHero();
+        show('Imagen reemplazada.');
+        return;
+      }
+      const { count } = await supabase.from('hero_slides').select('*', { count: 'exact', head: true });
+      const payload = {
+        image_url: fullUrl,
+        thumb_url: thumbUrl,
+        alt: '',
+        sort_order: count ?? 0,
+        active: true,
+      };
+      let { error } = await supabase.from('hero_slides').insert({ storage_path: realPath, ...payload });
+      if (error?.code === '23505') {
+        ({ error } = await supabase
+          .from('hero_slides')
+          .insert({ storage_path: `hero/ref-${Date.now()}`, ...payload }));
+      }
+      if (error) throw error;
+      await renderHero();
+      show('Slide añadido.');
+    } catch (error) {
+      show(error instanceof Error ? error.message : 'No se pudo guardar la imagen.', true);
+    }
+  }
+
   document.querySelector('[data-add-hero]')?.addEventListener('click', () => {
-    openMediaModal({
+    startAddPhotoWizard({
       folder: 'hero',
-      title: 'Añadir slide',
-      onSelect: async (url) => {
-        const realPath = storagePathFromUrl(url);
-        if (!realPath) {
-          show('La imagen debe estar en Storage.', true);
-          return;
-        }
-        try {
-          const { count } = await supabase.from('hero_slides').select('*', { count: 'exact', head: true });
-          const payload = {
-            image_url: url,
-            alt: '',
-            sort_order: count ?? 0,
-            active: true,
-          };
-          let { error } = await supabase.from('hero_slides').insert({ storage_path: realPath, ...payload });
-          if (error?.code === '23505') {
-            ({ error } = await supabase
-              .from('hero_slides')
-              .insert({ storage_path: `hero/ref-${Date.now()}`, ...payload }));
-          }
-          if (error) throw error;
-          await renderHero();
-          show('Slide añadido.');
-        } catch (error) {
-          show(error instanceof Error ? error.message : 'No se pudo añadir.', true);
-        }
-      },
+      onDone: ({ fullUrl, thumbUrl }) => saveHeroImage(fullUrl, thumbUrl),
     });
   });
 
@@ -220,34 +242,20 @@ import AdminHomeLayout from '../../../layouts/AdminHomeLayout.astro';
     const id = card.dataset.heroId!;
 
     if (target.closest('[data-hero-replace]')) {
-      const currentUrl = card.querySelector('img')?.src || '';
-      openMediaModal({
-        currentUrl,
-        folder: 'hero',
-        title: 'Reemplazar slide',
-        onSelect: async (url) => {
-          const realPath = storagePathFromUrl(url);
-          if (!realPath) {
-            show('La imagen debe estar en Storage.', true);
-            return;
-          }
-          let { error } = await supabase
-            .from('hero_slides')
-            .update({ storage_path: realPath, image_url: url })
-            .eq('id', id);
-          if (error?.code === '23505') {
-            ({ error } = await supabase
-              .from('hero_slides')
-              .update({ storage_path: `hero/ref-${Date.now()}`, image_url: url })
-              .eq('id', id));
-          }
-          if (error) show(error.message, true);
-          else {
-            await renderHero();
-            show('Imagen reemplazada.');
-          }
-        },
-      });
+      const fullUrl = card.dataset.full || '';
+      if (fullUrl) {
+        openEditPhotoWizard({
+          folder: 'hero',
+          fullUrl,
+          thumbUrl: card.dataset.thumb || '',
+          onDone: ({ fullUrl: nextFull, thumbUrl }) => saveHeroImage(nextFull, thumbUrl, id),
+        });
+      } else {
+        startAddPhotoWizard({
+          folder: 'hero',
+          onDone: ({ fullUrl: nextFull, thumbUrl }) => saveHeroImage(nextFull, thumbUrl, id),
+        });
+      }
       return;
     }
 

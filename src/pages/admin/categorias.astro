@@ -48,6 +48,7 @@ import AdminLayout from '../../layouts/AdminLayout.astro';
     nombre: string;
     descripcion: string;
     imagen: string;
+    imagen_thumb?: string | null;
     orden: number;
     en_vitrina?: boolean | null;
   };
@@ -60,7 +61,7 @@ import AdminLayout from '../../layouts/AdminLayout.astro';
   };
 
   const [{ data: categories, error }, { data: products }] = await Promise.all([
-    supabase.from('categories').select('slug, nombre, descripcion, imagen, orden, en_vitrina').order('orden'),
+    supabase.from('categories').select('slug, nombre, descripcion, imagen, imagen_thumb, orden, en_vitrina').order('orden'),
     supabase.from('products').select('categoria_slug, stock'),
   ]);
 
@@ -116,7 +117,15 @@ import AdminLayout from '../../layouts/AdminLayout.astro';
         const index = rows.findIndex((item) => item.slug === row.slug);
         return `
           <tr>
-            <td>${row.imagen ? `<img src="${escapeHtml(row.imagen)}" alt="">` : ''}</td>
+            <td>${
+              row.imagen
+                ? `<img src="${escapeHtml(row.imagen_thumb || row.imagen)}" alt="">${
+                    !row.imagen_thumb || row.imagen_thumb === row.imagen
+                      ? '<span class="admin-table-sub">Sin miniatura</span>'
+                      : ''
+                  }`
+                : ''
+            }</td>
             <td>${escapeHtml(row.nombre)}<span class="admin-table-sub">${escapeHtml(row.slug)}</span></td>
             <td>
               <a href="/admin/productos?categoria=${encodeURIComponent(row.slug)}">${pieces}</a>

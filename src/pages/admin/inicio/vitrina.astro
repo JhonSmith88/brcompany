@@ -29,7 +29,7 @@ import AdminHomeLayout from '../../../layouts/AdminHomeLayout.astro';
   import { showAdminAlert } from '../../../lib/admin-home';
   import { bindRoutePickers, loadSiteRoutes, pickerHref, routePickerHtml, setPickerHref, type SiteRoute } from '../../../lib/admin-routes';
   import { categoryHref, defaultVitrinaCopy, safeHeroHref, sanitizeVitrinaIcon, vitrinaIconOptions } from '../../../lib/home';
-  import { openMediaModal } from '../../../lib/media/media-picker';
+  import { missingThumb, openEditPhotoWizard, startAddPhotoWizard } from '../../../lib/media/photo-wizard';
   import { escapeHtml } from '../../../lib/media/ui';
 
   const gate = await requireAdminSession();
@@ -146,8 +146,9 @@ import AdminHomeLayout from '../../../layouts/AdminHomeLayout.astro';
     catList.innerHTML = (data ?? [])
       .map(
         (row) => `
-        <article data-cat-slug="${escapeHtml(row.slug)}">
-          <img src="${escapeHtml(row.imagen)}" alt="">
+        <article data-cat-slug="${escapeHtml(row.slug)}" data-full="${escapeHtml(row.imagen ?? '')}" data-thumb="${escapeHtml(row.imagen_thumb ?? '')}">
+          <img src="${escapeHtml(row.imagen_thumb || row.imagen)}" alt="">
+          ${missingThumb(row.imagen_thumb, row.imagen) ? '<span class="admin-table-sub">Sin miniatura</span>' : ''}
           <div class="admin-vitrina__fields">
             <label>Nombre <input type="text" value="${escapeHtml(row.nombre)}" data-cat-name></label>
             <label>Orden <input type="number" value="${row.orden}" data-cat-order></label>
@@ -161,7 +162,7 @@ import AdminHomeLayout from '../../../layouts/AdminHomeLayout.astro';
             <label class="admin-check"><input type="checkbox" data-cat-visible ${row.en_vitrina !== false ? 'checked' : ''}> En la vitrina</label>
           </div>
           <div class="admin-actions" style="margin:0">
-            <button type="button" class="btn btn--outline" data-cat-replace>Biblioteca / foto</button>
+            <button type="button" class="btn btn--outline" data-cat-replace>Elegir foto y miniatura</button>
             <button type="button" data-cat-save>Guardar</button>
           </div>
         </article>
@@ -178,20 +179,28 @@ import AdminHomeLayout from '../../../layouts/AdminHomeLayout.astro';
     const slug = card.dataset.catSlug!;
 
     if (target.closest('[data-cat-replace]')) {
-      const currentUrl = card.querySelector('img')?.src || '';
-      openMediaModal({
-        currentUrl,
-        folder: 'categories',
-        title: 'Foto de colección',
-        onSelect: async (url) => {
-          const { error } = await supabase.from('categories').update({ imagen: url }).eq('slug', slug);
-          if (error) show(error.message, true);
-          else {
-            await renderCategories();
-            show('Foto de colección actualizada.');
-          }
-        },
-      });
+      const apply = async ({ fullUrl, thumbUrl }: { fullUrl: string; thumbUrl: string }) => {
+        const { error } = await supabase
+          .from('categories')
+          .update({ imagen: fullUrl, imagen_thumb: thumbUrl })
+          .eq('slug', slug);
+        if (error) show(error.message, true);
+        else {
+          await renderCategories();
+          show('Foto de colección actualizada.');
+        }
+      };
+      const fullUrl = card.dataset.full || '';
+      if (fullUrl) {
+        openEditPhotoWizard({
+          folder: 'categories',
+          fullUrl,
+          thumbUrl: card.dataset.thumb || '',
+          onDone: apply,
+        });
+      } else {
+        startAddPhotoWizard({ folder: 'categories', onDone: apply });
+      }
       return;
     }
 

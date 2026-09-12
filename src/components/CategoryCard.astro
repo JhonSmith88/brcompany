@@ -12,7 +12,7 @@ const { category, count } = Astro.props;
 <a class="cat" href={`/catalogo/${category.slug}`}>
   <div class="cat__media">
     <img
-      src={category.imagen}
+      src={category.imagenThumb || category.imagen}
       alt=""
       width="900"
       height="700"
