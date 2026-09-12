@@ -13,21 +13,92 @@ interface Props {
   title?: string;
   description?: string;
   image?: string;
+  imageAlt?: string;
+  imageWidth?: number;
+  imageHeight?: number;
+  imageType?: string;
   ogType?: string;
+  price?: number;
+  currency?: string;
+  availability?: 'instock' | 'oos' | 'pending';
+  jsonLd?: Record<string, unknown> | Record<string, unknown>[];
 }
+
+const DEFAULT_OG = '/og.jpg';
+const DEFAULT_OG_WIDTH = 1200;
+const DEFAULT_OG_HEIGHT = 630;
+const DEFAULT_OG_TYPE = 'image/jpeg';
 
 const {
   title,
   description = site.description,
-  image = '/logo.png',
+  image = DEFAULT_OG,
+  imageAlt,
+  imageWidth,
+  imageHeight,
+  imageType,
   ogType = 'website',
+  price,
+  currency = 'USD',
+  availability,
+  jsonLd,
 } = Astro.props;
 
 const pageTitle = title ? `${title} · ${site.name}` : `${site.name} — ${site.tagline}`;
-const canonical = new URL(Astro.url.pathname, Astro.site);
-const absoluteImage = image.startsWith('http')
-  ? image
-  : new URL(image, Astro.site ?? Astro.url).href;
+const imageCaption = imageAlt ?? (title ? `${title} — ${site.name}` : `${site.name} — ${site.tagline}`);
+const origin = Astro.site ?? Astro.url;
+const canonical = new URL(Astro.url.pathname, Astro.site ?? origin);
+const shareImage = image === '/logo.png' ? DEFAULT_OG : image;
+const isBrandImage = shareImage === DEFAULT_OG;
+const absoluteImage = shareImage.startsWith('http')
+  ? shareImage
+  : new URL(shareImage, origin).href;
+
+function guessImageType(url: string): string | undefined {
+  const path = url.split('?')[0]?.toLowerCase() ?? '';
+  if (path.endsWith('.jpg') || path.endsWith('.jpeg')) return 'image/jpeg';
+  if (path.endsWith('.png')) return 'image/png';
+  if (path.endsWith('.webp')) return 'image/webp';
+  if (path.endsWith('.gif')) return 'image/gif';
+  return undefined;
+}
+
+const resolvedType = imageType ?? (isBrandImage ? DEFAULT_OG_TYPE : guessImageType(absoluteImage));
+const resolvedWidth = imageWidth ?? (isBrandImage ? DEFAULT_OG_WIDTH : undefined);
+const resolvedHeight = imageHeight ?? (isBrandImage ? DEFAULT_OG_HEIGHT : undefined);
+
+const organizationLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: site.name,
+  alternateName: site.tagline,
+  url: new URL('/', origin).href,
+  logo: new URL('/logo.png', origin).href,
+  image: new URL(DEFAULT_OG, origin).href,
+  description: site.description,
+  email: site.email,
+  telephone: `+${site.whatsapp.number}`,
+  address: {
+    '@type': 'PostalAddress',
+    addressCountry: 'EC',
+  },
+};
+
+const websiteLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: site.name,
+  url: new URL('/', origin).href,
+  description: site.description,
+  inLanguage: 'es-EC',
+  publisher: {
+    '@type': 'Organization',
+    name: site.name,
+  },
+};
+
+const extraLd = jsonLd ? (Array.isArray(jsonLd) ? jsonLd : [jsonLd]) : [];
+const structuredData = [organizationLd, websiteLd, ...extraLd];
 ---
 
 <!doctype html>
@@ -37,22 +108,43 @@ const absoluteImage = image.startsWith('http')
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="generator" content={Astro.generator} />
     <meta name="description" content={description} />
+    <meta name="author" content={site.name} />
+    <meta name="theme-color" content="#050505" />
+    <meta name="robots" content="index, follow" />
     <link rel="canonical" href={canonical} />
     <link rel="icon" type="image/png" href="/logo.png" />
+    <link rel="apple-touch-icon" href="/logo.png" />
+    <link rel="image_src" href={absoluteImage} />
 
     <meta property="og:type" content={ogType} />
+    <meta property="og:locale" content="es_EC" />
     <meta property="og:site_name" content={site.name} />
     <meta property="og:title" content={pageTitle} />
     <meta property="og:description" content={description} />
-    <meta property="og:image" content={absoluteImage} />
     <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={absoluteImage} />
+    <meta property="og:image:secure_url" content={absoluteImage} />
+    <meta property="og:image:alt" content={imageCaption} />
+    {resolvedType && <meta property="og:image:type" content={resolvedType} />}
+    {resolvedWidth && <meta property="og:image:width" content={String(resolvedWidth)} />}
+    {resolvedHeight && <meta property="og:image:height" content={String(resolvedHeight)} />}
+    {price != null && (
+      <>
+        <meta property="product:price:amount" content={String(price)} />
+        <meta property="product:price:currency" content={currency} />
+      </>
+    )}
+    {availability && <meta property="product:availability" content={availability} />}
+    {ogType === 'product' && <meta property="product:condition" content="new" />}
 
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={pageTitle} />
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={absoluteImage} />
+    <meta name="twitter:image:alt" content={imageCaption} />
 
     <title>{pageTitle}</title>
+    <script type="application/ld+json" set:html={JSON.stringify(structuredData)} />
   </head>
   <body>
     <Header />

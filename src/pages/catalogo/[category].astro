@@ -26,7 +26,8 @@ const catalog = await getCatalogPageCopy();
 <BaseLayout
   title={category.nombre}
   description={category.descripcion}
-  image={category.imagen}
+  image={category.imagen || '/og.jpg'}
+  imageAlt={category.nombre}
 >
   <section class="banner">
     <img src={category.imagen} alt="" class="banner__img" width="1600" height="700" />

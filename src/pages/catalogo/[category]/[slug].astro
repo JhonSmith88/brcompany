@@ -52,8 +52,29 @@ const stockLabel =
 <BaseLayout
   title={product.nombre}
   description={product.descripcion}
-  image={product.imagenPrincipal.full}
+  image={product.imagenPrincipal.full || '/og.jpg'}
+  imageAlt={product.imagenPrincipal.alt || product.nombre}
   ogType="product"
+  price={product.precioReal}
+  availability={product.stock > 0 ? 'instock' : 'oos'}
+  jsonLd={{
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: product.nombre,
+    description: product.descripcion,
+    sku: product.codigo,
+    image: product.imagenPrincipal.full || undefined,
+    brand: { '@type': 'Brand', name: product.marca },
+    category: product.categoria,
+    offers: {
+      '@type': 'Offer',
+      url: new URL(`/catalogo/${product.categoriaSlug}/${product.slug}`, origin || Astro.url).href,
+      priceCurrency: 'USD',
+      price: product.precioReal,
+      availability: product.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+      itemCondition: 'https://schema.org/NewCondition',
+    },
+  }}
 >
   <section class="section">
     <div class="container">
